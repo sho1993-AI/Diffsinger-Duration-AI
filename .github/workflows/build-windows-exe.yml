@@ -34,7 +34,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Could not select the pinned DiffSinger revision." }
           Copy-Item packaging/diffsinger/basics/base_binarizer.py third_party/DiffSinger/basics/base_binarizer.py -Force
           Copy-Item packaging/diffsinger/configs/*.yaml third_party/DiffSinger/configs/ -Force
-          Copy-Item packaging/diffsinger/checkpoints/. third_party/DiffSinger/checkpoints/ -Recurse -Force
+          robocopy packaging/diffsinger/checkpoints third_party/DiffSinger/checkpoints /E /NFL /NDL /NJH /NJS /NP
+          if ($LASTEXITCODE -ge 8) { throw "Could not copy the packaged checkpoints." }
 
       - name: Build and verify offline runtime
         shell: pwsh
