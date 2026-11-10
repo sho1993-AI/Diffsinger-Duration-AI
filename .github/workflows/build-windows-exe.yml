@@ -1,0 +1,53 @@
+name: Build Windows GUI
+
+on:
+  push:
+    branches:
+      - build-windows-exe
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 180
+    steps:
+      - name: Check out app and model assets
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: x64
+
+      - name: Fetch pinned DiffSinger source
+        shell: pwsh
+        run: |
+          git clone --filter=blob:none https://github.com/openvpi/DiffSinger.git third_party/DiffSinger
+          if ($LASTEXITCODE -ne 0) { throw "Could not clone DiffSinger." }
+          git -C third_party/DiffSinger checkout cb7869b8733a3882679c328994ee162845092cff
+          if ($LASTEXITCODE -ne 0) { throw "Could not select the pinned DiffSinger revision." }
+          Copy-Item packaging/diffsinger/basics/base_binarizer.py third_party/DiffSinger/basics/base_binarizer.py -Force
+          Copy-Item packaging/diffsinger/configs/*.yaml third_party/DiffSinger/configs/ -Force
+          Copy-Item packaging/diffsinger/checkpoints/. third_party/DiffSinger/checkpoints/ -Recurse -Force
+
+      - name: Build and verify offline runtime
+        shell: pwsh
+        run: .\scripts\build_windows.ps1
+
+      - name: Package distributable folder
+        shell: pwsh
+        run: Compress-Archive -Path dist\DiffSingerGUI\* -DestinationPath DiffSingerGUI-Windows-x64.zip
+
+      - name: Upload Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: DiffSingerGUI-Windows-x64
+          path: DiffSingerGUI-Windows-x64.zip
+          if-no-files-found: error
+          retention-days: 7

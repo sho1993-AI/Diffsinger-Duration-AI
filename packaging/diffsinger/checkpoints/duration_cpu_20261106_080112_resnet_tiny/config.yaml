@@ -1,0 +1,182 @@
+K_step: 1000
+accumulate_grad_batches: 1
+audio_sample_rate: 44100
+base_config: []
+binarization_args:
+  allow_unseen_phonemes: true
+  num_workers: 0
+  prefer_ds: false
+binarizer_cls: preprocessing.variance_binarizer.VarianceBinarizer
+binary_data_dir: data/duration_cpu/binary_allphones
+breathiness_db_max: -20.0
+breathiness_db_min: -96.0
+breathiness_smooth_width: 0.06
+clip_grad_norm: 1
+dataloader_prefetch_factor: 2
+dataset_size_key: lengths
+datasets:
+- language: ja
+  raw_data_dir: /workspaces/Diffsinger-Duration-AI/data/duration_cpu/raw_mora
+  speaker: sho
+  spk_id: 0
+  test_prefixes:
+  - data-kaza-001
+dictionaries:
+  ja: /workspaces/Diffsinger-Duration-AI/data/duration_cpu/phonemes.txt
+diff_accelerator: ddim
+diff_speedup: 10
+diffusion_type: reflow
+dropout: 0.1
+ds_workers: 1
+dur_prediction_args:
+  arch: resnet
+  dropout: 0.1
+  dur_ffn_mult: 2
+  dur_num_blocks: 1
+  dur_num_heads: 2
+  dur_radius: 8
+  hidden_size: 64
+  kernel_size: 3
+  lambda_pdur_loss: 0.3
+  lambda_sdur_loss: 3.0
+  lambda_wdur_loss: 1.0
+  log_offset: 1.0
+  loss_type: mse
+  num_layers: 1
+enc_ffn_kernel_size: 3
+enc_layers: 2
+energy_db_max: -12.0
+energy_db_min: -96.0
+energy_smooth_width: 0.06
+extra_phonemes: []
+f0_max: 1100
+f0_min: 65
+ffn_act: gelu
+fft_size: 2048
+finetune_ckpt_path: null
+finetune_enabled: false
+finetune_ignored_params:
+- model.spk_embed
+- model.fs2.txt_embed
+- model.fs2.encoder.embed_tokens
+finetune_strict_shapes: true
+freezing_enabled: false
+frozen_params: []
+glide_embed_scale: 11.31370849898476
+glide_types:
+- up
+- down
+hidden_size: 64
+hnsep: vr
+hnsep_ckpt: checkpoints/vr/model.pt
+hop_size: 512
+lambda_dur_loss: 1.0
+lambda_pitch_loss: 1.0
+lambda_var_loss: 1.0
+log_interval: 100
+lr_scheduler_args:
+  gamma: 0.75
+  scheduler_cls: torch.optim.lr_scheduler.StepLR
+  step_size: 5000
+main_loss_log_norm: true
+main_loss_type: l2
+max_batch_frames: 20000
+max_batch_size: 16
+max_beta: 0.02
+max_updates: 30
+max_val_batch_frames: 20000
+max_val_batch_size: 1
+melody_encoder_args:
+  enc_layers: 4
+  hidden_size: 128
+merged_phoneme_groups:
+- - AP
+  - SP
+midi_smooth_width: 0.06
+nccl_p2p: false
+num_ckpt_keep: 8
+num_heads: 2
+num_lang: 1
+num_sanity_val_steps: 1
+num_spk: 1
+num_valid_plots: 10
+optimizer_args:
+  adamw_args:
+    weight_decay: 0.0
+  beta1: 0.9
+  beta2: 0.98
+  lr: 0.0006
+  muon_args:
+    weight_decay: 0.1
+  optimizer_cls: modules.optimizer.muon.Muon_AdamW
+  weight_decay: 0
+pe: parselmouth
+pe_ckpt: checkpoints/rmvpe/model.pt
+permanent_ckpt_interval: 10000
+permanent_ckpt_start: 30000
+pitch_prediction_args:
+  backbone_args:
+    dropout_rate: 0.0
+    glu_type: atanglu
+    num_channels: 512
+    num_layers: 6
+    use_conditioner_cache: true
+  backbone_type: lynxnet2
+  pitd_clip_max: 12.0
+  pitd_clip_min: -12.0
+  pitd_norm_max: 8.0
+  pitd_norm_min: -8.0
+  repeat_bins: 64
+pl_trainer_accelerator: cpu
+pl_trainer_devices: 1
+pl_trainer_num_nodes: 1
+pl_trainer_precision: 32-true
+pl_trainer_strategy:
+  find_unused_parameters: false
+  name: auto
+  process_group_backend: gloo
+predict_breathiness: false
+predict_dur: true
+predict_energy: false
+predict_pitch: false
+predict_tension: false
+predict_voicing: false
+rel_pos: true
+rope_interleaved: false
+rope_theta: 10000
+sampler_frame_count_grid: 6
+sampling_algorithm: euler
+sampling_steps: 20
+schedule_type: linear
+sort_by_len: true
+task_cls: training.variance_task.VarianceTask
+tension_logit_max: 10.0
+tension_logit_min: -10.0
+tension_smooth_width: 0.06
+time_scale_factor: 1000
+timesteps: 1000
+use_dual_timestep: true
+use_fused_kernels: false
+use_glide_embed: false
+use_lang_id: false
+use_melody_encoder: true
+use_pos_embed: true
+use_rope: true
+use_spk_id: false
+use_stretch_embed: false
+use_variance_scaling: true
+val_check_interval: 10
+variances_prediction_args:
+  backbone_args:
+    dropout_rate: 0.0
+    glu_type: atanglu
+    num_channels: 384
+    num_layers: 6
+    use_conditioner_cache: true
+  backbone_type: lynxnet2
+  total_repeat_bins: 72
+voicing_db_max: -12.0
+voicing_db_min: -96.0
+voicing_smooth_width: 0.06
+win_size: 2048
+work_dir: checkpoints/duration_cpu_20261106_080112_resnet_tiny

@@ -1,0 +1,121 @@
+K_step: 300
+K_step_infer: 300
+T_start: 0.4
+T_start_infer: 0.4
+augmentation_args:
+  fixed_pitch_shifting:
+    enabled: false
+    scale: 0.5
+    targets:
+    - -5.0
+    - 5.0
+  random_pitch_shifting:
+    enabled: true
+    range:
+    - -5.0
+    - 5.0
+    scale: 0.75
+  random_time_stretching:
+    enabled: true
+    range:
+    - 0.5
+    - 2.0
+    scale: 0.75
+backbone_args:
+  dropout_rate: 0.0
+  glu_type: atanglu
+  kernel_size: 31
+  num_channels: 96
+  num_layers: 1
+  use_conditioner_cache: false
+backbone_type: lynxnet2
+base_config:
+- configs/acoustic.yaml
+binarization_args:
+  num_workers: 0
+  allow_unseen_phonemes: true
+binary_data_dir: data/acoustic_cpu/binary
+datasets:
+- raw_data_dir: /workspaces/Diffsinger-Duration-AI/data/duration_cpu/raw_mora
+  speaker: my_singer
+  spk_id: 0
+  language: ja
+  test_prefixes:
+  - data-kaza-001
+dictionaries:
+  ja: /workspaces/Diffsinger-Duration-AI/data/duration_cpu/phonemes.txt
+diffusion_type: reflow
+enc_ffn_kernel_size: 3
+extra_phonemes: []
+hidden_size: 96
+hnsep: vr
+hnsep_ckpt: checkpoints/vr/model.pt
+lambda_aux_mel_loss: 0.2
+lr_scheduler_args:
+  gamma: 0.8
+  step_size: 5000
+max_batch_frames: 12000
+max_batch_size: 4
+max_updates: 1000
+merged_phoneme_groups: []
+mix_ln_layer:
+- 0
+- 2
+num_ckpt_keep: 8
+num_lang: 1
+num_spk: 1
+num_valid_plots: 10
+optimizer_args:
+  adamw_args:
+    weight_decay: 0.0
+  lr: 0.0006
+  muon_args:
+    weight_decay: 0.1
+  optimizer_cls: modules.optimizer.muon.Muon_AdamW
+pe: parselmouth
+pe_ckpt: checkpoints/rmvpe/model.pt
+permanent_ckpt_interval: 10000
+permanent_ckpt_start: 60000
+pl_trainer_devices: 1
+pl_trainer_precision: 32-true
+rope_interleaved: false
+rope_theta: 10000
+shallow_diffusion_args:
+  aux_decoder_arch: convnext
+  aux_decoder_args:
+    dropout_rate: 0.1
+    kernel_size: 7
+    num_channels: 512
+    num_layers: 6
+  aux_decoder_grad: 0.1
+  train_aux_decoder: true
+  train_diffusion: true
+  val_gt_start: false
+use_breathiness_embed: false
+use_dual_timestep: true
+use_energy_embed: false
+use_key_shift_embed: true
+use_lang_id: false
+use_mix_ln: false
+use_rope: true
+use_shallow_diffusion: false
+use_speed_embed: true
+use_spk_id: false
+use_stretch_embed: true
+use_tension_embed: false
+use_variance_scaling: true
+use_voicing_embed: false
+val_check_interval: 100
+val_with_vocoder: false
+vocoder: NsfHifiGAN
+vocoder_ckpt: checkpoints/pc_nsf_hifigan_44.1k_hop512_128bin_2025.02/model.ckpt
+enc_layers: 1
+use_fused_kernels: false
+max_val_batch_frames: 12000
+max_val_batch_size: 1
+pl_trainer_accelerator: cpu
+pl_trainer_strategy:
+  name: auto
+  process_group_backend: gloo
+  find_unused_parameters: false
+nccl_p2p: false

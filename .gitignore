@@ -1,0 +1,12 @@
+.venv/
+.venv-cpu/
+.venv-cpu312/
+third_party/
+data/
+checkpoints/
+__pycache__/
+*.py[cod]
+duration_sweep_*.json
+.build-windows-venv/
+build/
+dist/

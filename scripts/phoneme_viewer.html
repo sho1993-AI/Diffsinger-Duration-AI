@@ -1,0 +1,2684 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>音素ビューア・合成 | DiffSinger</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #202a31;
+      --muted: #65747a;
+      --paper: #f3f6f2;
+      --line: #d7dfd9;
+      --teal: #137b72;
+      --teal-soft: #dceee9;
+      --coral: #d55e4f;
+      --yellow: #f0c46b;
+      --surface: #fffefa;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; color: var(--ink); background: var(--paper); font-family: "Yu Gothic", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif; }
+    button, select, input { font: inherit; }
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 18px clamp(18px, 4vw, 56px); border-bottom: 1px solid var(--line); background: rgba(255,254,250,.88); }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-mark { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--teal); font: 700 15px Georgia, serif; }
+    .brand-title { font: 600 18px Georgia, "Yu Mincho", serif; letter-spacing: 0; }
+    .brand-sub { margin-top: 3px; color: var(--muted); font: 11px var(--mono); }
+    .status { display: flex; align-items: center; gap: 8px; color: var(--muted); font: 12px var(--mono); }
+    .status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #4a9b70; }
+    main { max-width: 1440px; margin: 0 auto; padding: 34px clamp(16px, 4vw, 56px) 60px; }
+    .intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 25px; }
+    h1 { margin: 0; font: 500 clamp(26px, 3vw, 38px)/1.15 Georgia, "Yu Mincho", serif; letter-spacing: 0; }
+    .intro p { max-width: 560px; margin: 9px 0 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+    .mode-switch { display: flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 6px; background: #e9eee9; flex: 0 0 auto; }
+    .mode-switch button { padding: 9px 15px; border: 0; border-radius: 4px; color: var(--muted); background: transparent; cursor: pointer; font-size: 13px; }
+    .mode-switch button[aria-pressed="true"] { color: #fff; background: var(--ink); }
+    .workspace { display: grid; grid-template-columns: 280px minmax(0, 1fr); min-height: 580px; border: 1px solid var(--line); background: var(--surface); }
+    aside { padding: 20px 16px; border-right: 1px solid var(--line); background: #f9faf6; }
+    .side-heading { display: flex; align-items: baseline; justify-content: space-between; margin: 0 3px 13px; font-size: 12px; font-weight: 700; }
+    .count { color: var(--muted); font: 11px var(--mono); }
+    .record-list { display: grid; gap: 5px; }
+    .record-button { display: grid; gap: 6px; width: 100%; padding: 12px 11px; border: 1px solid transparent; border-radius: 4px; color: var(--ink); background: transparent; text-align: left; cursor: pointer; }
+    .record-button:hover { background: #edf3ee; }
+    .record-button.active { border-color: #b6d6cc; background: var(--teal-soft); }
+    .record-name { overflow-wrap: anywhere; font: 12px var(--mono); }
+    .record-meta { color: var(--muted); font-size: 11px; }
+    .upload-box { margin-top: 18px; padding: 13px; border: 1px dashed #aab9b1; border-radius: 4px; background: var(--surface); }
+    .upload-box label { display: block; margin-bottom: 7px; font-size: 12px; font-weight: 700; }
+    .upload-box input { width: 100%; color: var(--muted); font-size: 11px; }
+    .upload-box select { width: 100%; padding: 7px; border: 1px solid var(--line); border-radius: 3px; background: white; font-size: 11px; }
+    .upload-box button { width: 100%; margin-top: 10px; padding: 8px; border: 0; border-radius: 3px; color: white; background: var(--teal); cursor: pointer; font-size: 12px; }
+    .upload-box button:disabled { opacity: .45; cursor: not-allowed; }
+    .upload-box p { margin: 8px 0 0; color: var(--muted); font-size: 10px; line-height: 1.6; }
+    .content { min-width: 0; padding: 24px clamp(16px, 3vw, 36px) 32px; }
+    .content-head { display: flex; align-items: start; justify-content: space-between; gap: 15px; padding-bottom: 17px; border-bottom: 1px solid var(--line); }
+    h2 { margin: 0; overflow-wrap: anywhere; font: 500 23px Georgia, "Yu Mincho", serif; letter-spacing: 0; }
+    .subtitle { margin-top: 5px; color: var(--muted); font-size: 12px; }
+    .stats { display: flex; gap: 17px; flex: 0 0 auto; }
+    .stat { display: grid; gap: 4px; text-align: right; }
+    .stat span { color: var(--muted); font-size: 10px; }
+    .stat strong { font: 600 16px var(--mono); }
+    .section-label { display: flex; justify-content: space-between; gap: 12px; margin: 22px 0 9px; color: var(--muted); font-size: 11px; font-weight: 700; }
+    .axis { display: flex; justify-content: space-between; padding: 0 1px 5px; color: #7c898a; font: 10px var(--mono); }
+    .timeline { display: flex; position: relative; width: 100%; min-height: 48px; overflow: hidden; border: 1px solid #d5ddd7; border-radius: 3px; background: #edf1ed; }
+    .phone { display: flex; position: relative; z-index: 1; flex-direction: column; justify-content: center; min-width: 0; padding: 5px 3px; overflow: hidden; border-right: 1px solid rgba(32,42,49,.16); color: #193d3a; background: var(--teal-soft); text-align: center; }
+    .boundary-line { position: absolute; z-index: 2; top: 0; bottom: 0; width: 1px; background: var(--coral); box-shadow: 0 0 0 1px rgba(255,255,255,.55); pointer-events: none; }
+    .phone:nth-child(4n+2) { background: #e8eee1; }
+    .phone:nth-child(4n+3) { background: #f7e9cc; color: #564223; }
+    .phone:nth-child(4n) { background: #f3ded7; color: #633d36; }
+    .phone b { overflow: hidden; font: 600 11px var(--mono); text-overflow: ellipsis; white-space: nowrap; }
+    .phone small { margin-top: 3px; overflow: hidden; font: 9px var(--mono); text-overflow: ellipsis; white-space: nowrap; opacity: .8; }
+    .note-track { margin-top: 8px; min-height: 34px; border-color: #e5d7b8; }
+    .note-track .phone { color: #5a492b; background: #f7edda; }
+    .audio-row { display: flex; align-items: center; gap: 13px; margin-top: 13px; }
+    audio { width: min(390px, 100%); height: 34px; }
+    .wave { width: 100%; height: 46px; }
+    .spectrogram { display: block; width: 100%; height: 190px; border: 1px solid var(--line); border-radius: 3px; background: #17272a; }
+    .time-axis { display: flex; justify-content: space-between; padding-top: 5px; color: #7c898a; font: 10px var(--mono); }
+    .inference-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-top: 12px; }
+    .inference-actions audio { flex: 0 1 330px; }
+    .inference-actions a { color: var(--teal); font-size: 12px; }
+    .run-status { color: var(--muted); font-size: 11px; }
+    .synthesis-monitor { margin-top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 3px; background: #f8faf7; }
+    .synthesis-monitor progress { width: 100%; height: 8px; accent-color: var(--teal); }
+    .live-spectrogram { display: block; width: 100%; height: 140px; margin-top: 8px; border-radius: 3px; background: #17272a; }
+    .synthesis-log { max-height: 120px; margin: 8px 0 0; overflow: auto; color: var(--muted); font: 10px/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+    .table-wrap { margin-top: 19px; max-height: 300px; overflow: auto; border: 1px solid var(--line); border-radius: 3px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { position: sticky; top: 0; color: var(--muted); background: #f3f6f2; font-size: 10px; font-weight: 700; text-align: left; }
+    th, td { padding: 8px 10px; border-bottom: 1px solid #e8ece8; white-space: nowrap; }
+    td.num { font-family: var(--mono); text-align: right; }
+    td.phone-cell { font: 600 12px var(--mono); }
+    tr:last-child td { border-bottom: 0; }
+    .empty, .error { padding: 30px 12px; color: var(--muted); text-align: center; font-size: 13px; }
+    .error { color: #a33e34; }
+    .notice { margin-top: 12px; color: #936c20; font-size: 11px; }
+    .track-list { display: grid; gap: 4px; margin: 8px 0 14px; }
+    .project-track { display: flex; align-items: center; gap: 3px; min-width: 0; }
+    .project-track .track-button { min-width: 0; flex: 1 1 auto; }
+    .project-track .track-button > span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .track-remove { width: 25px; height: 27px; padding: 0; border: 0; border-radius: 3px; color: var(--muted); background: transparent; cursor: pointer; }
+    .track-remove:hover { color: #a33e34; background: #f3ded7; }
+    .track-button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px; border: 1px solid transparent; border-radius: 3px; color: var(--ink); background: transparent; text-align: left; cursor: pointer; font-size: 11px; }
+    .track-button.active { border-color: #b6d6cc; background: var(--teal-soft); }
+    .track-dot { width: 9px; height: 9px; flex: 0 0 auto; border-radius: 2px; background: var(--teal); }
+    .editor { margin-top: 22px; border: 1px solid var(--line); background: #fbfcfa; }
+    .editor-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; padding: 9px; border-bottom: 1px solid var(--line); background: #f1f5f1; }
+    .editor-toolbar button, .editor-toolbar select, .editor-toolbar input { min-height: 30px; padding: 5px 8px; border: 1px solid #cbd5ce; border-radius: 3px; color: var(--ink); background: white; font-size: 11px; }
+    .editor-toolbar button { cursor: pointer; }
+    .editor-toolbar button[aria-pressed="true"] { border-color: var(--teal); color: #fff; background: var(--teal); }
+    .editor-toolbar button:disabled { opacity: .45; cursor: not-allowed; }
+    .editor-toolbar .tool-spacer { flex: 1 1 auto; }
+    .editor-toolbar .editor-number { width: 58px; }
+    .piano-scroll { max-width: 100%; overflow: auto; overscroll-behavior: contain; }
+    #piano-roll { display: block; min-width: 100%; height: 520px; background: #fff; cursor: crosshair; touch-action: none; }
+    .editor-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 10px; }
+    .lyrics-editor { display: grid; grid-template-columns: minmax(100px, 1fr) minmax(180px, 2fr) auto; align-items: end; gap: 8px; padding: 10px; border-top: 1px solid var(--line); }
+    .lyrics-editor label { display: grid; gap: 4px; color: var(--muted); font-size: 10px; }
+    .lyrics-editor input { min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 3px; font: 11px var(--mono); }
+    .lyrics-editor button { min-height: 31px; padding: 6px 10px; border: 0; border-radius: 3px; color: white; background: var(--teal); cursor: pointer; font-size: 11px; }
+    .transport { display: flex; align-items: center; gap: 5px; }
+    .transport button { min-width: 32px; font-weight: 700; }
+    .editor-status { color: var(--muted); }
+    .arrangement { margin-top: 16px; border: 1px solid var(--line); background: #f9fbf8; }
+    .arrangement-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border-bottom: 1px solid var(--line); font-size: 11px; font-weight: 700; }
+    .arrangement-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+    .arrangement-controls label { display: inline-flex; align-items: center; gap: 5px; color: var(--muted); font-size: 10px; }
+    .arrangement-controls input { width: 76px; padding: 5px; border: 1px solid var(--line); border-radius: 3px; }
+    .arrangement-controls button { padding: 6px 9px; border: 1px solid var(--line); border-radius: 3px; background: white; cursor: pointer; font-size: 10px; }
+    .arrangement-scroll { max-width: 100%; overflow: auto; }
+    #arrangement-wave { display: block; min-width: 100%; height: 190px; background: #fff; touch-action: none; }
+    .arrangement-help { padding: 6px 10px; color: var(--muted); font-size: 10px; }
+    .hidden { display: none !important; }
+    @media (max-width: 760px) {
+      .topbar { padding: 13px 16px; }
+      .status { font-size: 10px; }
+      main { padding-top: 23px; }
+      .intro { align-items: start; flex-direction: column; }
+      .mode-switch { align-self: stretch; }
+      .mode-switch button { flex: 1; }
+      .workspace { grid-template-columns: 1fr; }
+      aside { border-right: 0; border-bottom: 1px solid var(--line); }
+      .record-list { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+      .content-head { flex-direction: column; }
+      .stats { align-self: stretch; justify-content: start; }
+      .stat { text-align: left; }
+      .phone b { font-size: 9px; }
+      .phone small { font-size: 8px; }
+      .lyrics-editor { grid-template-columns: 1fr; }
+      #piano-roll { height: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark">音</div><div><div class="brand-title">DiffSinger Studio</div><div class="brand-sub">WEB VOICE EDITOR</div></div></div>
+    <div class="status">LOCAL DATA</div>
+  </header>
+  <main>
+    <div class="intro">
+      <div><h1>歌声を、編集して合成。</h1><p>DSプロジェクト、トラック、ピアノロール、音素編集、リアルタイム合成をひとつの画面で扱えます。</p></div>
+      <div class="mode-switch" role="group" aria-label="データ種別">
+        <button id="training-mode" aria-pressed="false">教師データ</button>
+        <button id="inference-mode" aria-pressed="true">推論・合成</button>
+      </div>
+    </div>
+    <div class="workspace">
+      <aside>
+        <div class="side-heading"><span id="list-title">学習録音</span><span class="count" id="list-count">...</span></div>
+        <div class="record-list" id="record-list"><div class="empty">読み込み中</div></div>
+        <div class="upload-box hidden" id="upload-box">
+          <label for="inference-file">プロジェクト / 歌声トラックを開く</label>
+          <input id="inference-file" type="file" accept=".ds,.json,.dsproj,.lab,.ust,.ustx,.mid,.midi,.vsqx,.oup" multiple>
+          <button id="add-track" type="button">＋トラックを追加</button>
+          <label for="bgm-file" style="margin-top:13px">BGM / ガイド音源</label>
+          <input id="bgm-file" type="file" accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a">
+          <div class="track-list" id="track-list" aria-label="プロジェクトトラック"></div>
+          <button id="save-project" type="button" disabled>プロジェクトを保存</button>
+          <label for="model-select" style="margin-top:13px">学習済みDurationモデル</label>
+          <select id="model-select"><option>読み込み中</option></select>
+          <button id="predict-duration" type="button" disabled>Durationを予測</button>
+          <div class="run-status" id="inference-status" aria-live="polite"></div>
+          <label for="acoustic-model-select" style="margin-top:13px">音声合成モデル</label>
+          <select id="acoustic-model-select"><option>読み込み中</option></select>
+          <label for="speaker-select" id="speaker-label" style="margin-top:10px">歌声</label>
+          <select id="speaker-select"></select>
+          <button id="synthesize" type="button" disabled>選択トラックを合成</button>
+          <button id="synthesize-all" type="button" disabled>全歌声トラックを合成・ミックス</button>
+          <div class="run-status" id="synthesis-help" aria-live="polite"></div>
+          <label for="inference-audio" style="margin-top:14px">推論WAV / 合成済みWAV</label>
+          <input id="inference-audio" type="file" accept="audio/wav,.wav">
+          <p>.dsのph_seqを音素一覧・タイムラインに表示します。Duration推論後、音響モデルとvocoderがあればWAVを合成できます。</p>
+        </div>
+      </aside>
+      <section class="content" id="detail"><div class="empty">データを読み込んでいます...</div></section>
+    </div>
+  </main>
+<script>
+  const state = {
+    mode: "inference",
+    training: [],
+    inferenceSamples: [],
+    models: [],
+    synthesisModels: [],
+    inference: null,
+    sourceText: "",
+    sourceName: "",
+    audioUrl: "",
+    generatedAudio: false,
+    active: 0,
+    projectTracks: [],
+    activeTrackIndex: 0,
+    addingTracks: false,
+    bgm: null,
+    mixerOffset: 0,
+    mixedAudioUrl: "",
+    editor: {tempo: 120, numerator: 4, denominator: 4, snap: 0.25, tool: "select", zoom: 72, selectedNote: -1, playhead: 0},
+    undoStack: [],
+    redoStack: [],
+    synthesisRunning: false,
+    synthesisLogs: [],
+    synthesisTotal: 0,
+    synthesisCompleted: 0,
+    livePlayback: null,
+    synthesisJobId: "",
+    transportFrame: 0
+  };
+  const $ = (selector) => document.querySelector(selector);
+  const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
+  const seconds = (value) => Number.isFinite(value) ? `${value.toFixed(2)} s` : "—";
+
+  function setMode(mode) {
+    resetSynthesisState();
+    stopTransport();
+    if (state.livePlayback) {
+      cancelAnimationFrame(state.livePlayback.frame);
+      state.livePlayback.audioContext.close();
+      state.livePlayback = null;
+    }
+    state.mode = mode;
+    state.active = 0;
+    state.inference = null;
+    $("#training-mode").setAttribute("aria-pressed", mode === "training");
+    $("#inference-mode").setAttribute("aria-pressed", mode === "inference");
+    $("#list-title").textContent = mode === "training" ? "学習録音" : "推論サンプル";
+    $("#upload-box").classList.toggle("hidden", mode !== "inference");
+    renderList();
+    if (mode === "inference" && state.inferenceSamples.length) {
+      loadInferenceSample(state.inferenceSamples[0]);
+    }
+  }
+
+  function renderList() {
+    const list = $("#record-list");
+    const records = state.mode === "training" ? state.training : state.inferenceSamples;
+    $("#list-count").textContent = `${records.length} FILES`;
+    if (!records.length) {
+      list.innerHTML = '<div class="empty">サンプルがありません</div>';
+      return;
+    }
+    list.innerHTML = records.map((item, index) => {
+      const name = state.mode === "training" ? item.name : item;
+      const meta = state.mode === "training" ? `${item.labels.length} 音素 · ${seconds(item.duration)}` : "DiffSinger .ds";
+      return `<button class="record-button ${index === state.active ? "active" : ""}" data-index="${index}"><span class="record-name">${escapeHtml(name)}</span><span class="record-meta">${escapeHtml(meta)}</span></button>`;
+    }).join("");
+    list.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
+      state.active = Number(button.dataset.index);
+      if (state.mode === "training") renderTraining();
+      else loadInferenceSample(state.inferenceSamples[state.active]);
+      renderList();
+    }));
+    if (state.mode === "training") renderTraining();
+  }
+
+  function timeline(items, label, totalDuration, durationKey = "duration") {
+    if (!items.length) return `<div class="empty">${label}がありません</div>`;
+    const knownTotal = items.reduce((sum, item) => sum + (Number(item[durationKey]) || 0), 0);
+    const useEqual = !knownTotal;
+    const weights = items.map((item) => useEqual ? 1 : Math.max(0, Number(item[durationKey]) || 0));
+    const sum = weights.reduce((total, value) => total + value, 0) || items.length;
+    let elapsed = 0;
+    const phones = items.map((item, index) => {
+      const duration = item[durationKey];
+      const width = Math.max(.45, (weights[index] / sum) * 100);
+      elapsed += weights[index];
+      return `<div class="phone" style="width:${width}%" title="${escapeHtml(item.phoneme || item.note)} · ${seconds(duration)}"><b>${escapeHtml(item.phoneme || item.note)}</b><small>${duration == null ? "時間なし" : seconds(duration)}</small></div>`;
+    }).join("");
+    elapsed = 0;
+    const boundaries = weights.slice(0, -1).map((weight) => {
+      elapsed += weight;
+      return `<i class="boundary-line" style="left:${(elapsed / sum) * 100}%"></i>`;
+    }).join("");
+    return `<div class="timeline">${phones}${boundaries}</div>`;
+  }
+
+  function renderTable(items) {
+    return `<div class="table-wrap"><table><thead><tr><th>#</th><th>音素</th><th>開始</th><th>終了</th><th>長さ</th></tr></thead><tbody>${items.map((item, index) => {
+      const start = Number.isFinite(item.start) ? item.start : null;
+      const end = Number.isFinite(item.end) ? item.end : (start == null && item.duration != null ? item.duration : null);
+      return `<tr><td class="num">${index + 1}</td><td class="phone-cell">${escapeHtml(item.phoneme)}</td><td class="num">${start == null ? "—" : start.toFixed(3)}</td><td class="num">${end == null ? "—" : end.toFixed(3)}</td><td class="num">${item.duration == null ? "—" : Number(item.duration).toFixed(3) + " s"}</td></tr>`;
+    }).join("")}</tbody></table></div>`;
+  }
+
+  function sourceSegments(sourceText = state.sourceText) {
+    const data = JSON.parse(sourceText);
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.segments)) return data.segments;
+    if (data && typeof data === "object") return [data];
+    throw new Error("DSデータの形式を確認してください");
+  }
+
+  function normalizeSource(sourceText) {
+    const raw = sourceSegments(sourceText);
+    return {
+      name: state.sourceName,
+      source: sourceText,
+      segments: raw.map((segment) => {
+        const phones = String(segment.ph_seq || "").split(/\s+/).filter(Boolean);
+        const phoneDurations = String(segment.ph_dur || "").split(/\s+/).map(Number);
+        const notes = String(segment.note_seq || "").split(/\s+/).filter(Boolean);
+        const noteDurations = String(segment.note_dur || "").split(/\s+/).map(Number);
+        return {
+          offset: Number(segment.offset) || 0,
+          text: String(segment.text || ""),
+          phonemes: phones.map((phoneme, index) => ({
+            phoneme,
+            duration: Number.isFinite(phoneDurations[index]) ? phoneDurations[index] : null,
+          })),
+          notes: notes.map((note, index) => ({
+            note,
+            duration: Number.isFinite(noteDurations[index]) ? noteDurations[index] : null,
+          })),
+          duration_mismatch: phones.length !== phoneDurations.length,
+        };
+      }),
+    };
+  }
+
+  function syncActiveTrack() {
+    const track = state.projectTracks[state.activeTrackIndex];
+    if (track && state.inference) {
+      if (track.sourceText !== state.sourceText) track.synthesisBlob = null;
+      track.sourceText = state.sourceText;
+      track.sourceName = state.sourceName;
+      track.inference = state.inference;
+    }
+  }
+
+  function saveUndoPoint() {
+    state.undoStack.push(state.sourceText);
+    if (state.undoStack.length > 50) state.undoStack.shift();
+    state.redoStack = [];
+  }
+
+  function applySourceChange(change) {
+    try {
+      const data = JSON.parse(state.sourceText);
+      const raw = Array.isArray(data) ? data : Array.isArray(data.segments) ? data.segments : [data];
+      saveUndoPoint();
+      change(raw);
+      state.sourceText = JSON.stringify(data, null, 2);
+      state.inference = {...state.inference, ...normalizeSource(state.sourceText)};
+      stopTransport();
+      clearInferenceAudio();
+      resetSynthesisState();
+      syncActiveTrack();
+      updatePredictButton();
+      renderInference(state.segment || 0);
+      renderProjectTracks();
+      return true;
+    } catch (error) {
+      const status = $("#editor-status");
+      if (status) status.textContent = error.message;
+      return false;
+    }
+  }
+
+  function noteToMidi(note) {
+    if (String(note).toLowerCase() === "rest") return null;
+    const match = /^([A-Ga-g])([#b]?)(-?\d+)$/.exec(String(note));
+    if (!match) return null;
+    const offsets = {C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11};
+    let pitch = offsets[match[1].toUpperCase()];
+    if (match[2] === "#") pitch += 1;
+    if (match[2] === "b") pitch -= 1;
+    return (Number(match[3]) + 1) * 12 + pitch;
+  }
+
+  function midiToNote(midi) {
+    const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    const value = Math.max(0, Math.min(127, Math.round(midi)));
+    return `${names[value % 12]}${Math.floor(value / 12) - 1}`;
+  }
+
+  function snapBeat(value) {
+    const snap = Number(state.editor.snap);
+    return snap > 0 ? Math.max(snap, Math.round(value / snap) * snap) : value;
+  }
+
+  function renderEditor(segment, segmentIndex) {
+    const raw = sourceSegments()[segmentIndex] || {};
+    const toolButton = (tool, label) => `<button type="button" data-editor-tool="${tool}" aria-pressed="${state.editor.tool === tool}">${label}</button>`;
+    return `<section class="editor" aria-label="ピアノロール編集">
+      <div class="editor-toolbar">
+        <div class="transport"><button type="button" id="transport-play" title="再生">▶</button><button type="button" id="transport-stop" title="停止">■</button></div>
+        ${toolButton("select", "選択")}
+        ${toolButton("draw", "音符追加")}
+        ${toolButton("erase", "削除")}
+        <label>グリッド <select id="editor-snap"><option value="0.25">1/16</option><option value="0.5">1/8</option><option value="1">1/4</option><option value="2">1/2</option><option value="0">なし</option></select></label>
+        <label>BPM <input class="editor-number" id="editor-tempo" type="number" min="30" max="300" value="${state.editor.tempo}"></label>
+        <label>拍子 <input class="editor-number" id="editor-numerator" type="number" min="1" max="16" value="${state.editor.numerator}"> / <input class="editor-number" id="editor-denominator" type="number" min="1" max="16" value="${state.editor.denominator}"></label>
+        <label>ズーム <input id="editor-zoom" type="range" min="36" max="160" value="${state.editor.zoom}"></label>
+        <span class="tool-spacer"></span>
+        <button type="button" id="editor-undo" ${state.undoStack.length ? "" : "disabled"}>元に戻す</button>
+        <button type="button" id="editor-redo" ${state.redoStack.length ? "" : "disabled"}>やり直し</button>
+        <button type="button" id="export-ds">このトラックをDS保存</button>
+      </div>
+      <div class="piano-scroll"><canvas id="piano-roll" tabindex="0" aria-label="音符を編集するピアノロール"></canvas></div>
+      <div class="editor-foot"><span>ドラッグ: 音高変更 / 右端: 長さ変更 / ←→: 音符移動 / Shift+←→: 長さ / Delete: 削除</span><span class="editor-status" id="editor-status">フレーズ ${segmentIndex + 1} · ${escapeHtml(String(segment.offset || 0))} s</span></div>
+      <div class="lyrics-editor">
+        <label>歌詞 / 表示テキスト<input id="editor-text" value="${escapeHtml(raw.text || "")}"></label>
+        <label>DS音素列（空白区切り）<input id="editor-phonemes" value="${escapeHtml(raw.ph_seq || "")}"></label>
+        <button type="button" id="apply-lyrics">歌詞・音素を反映</button>
+      </div>
+    </section>`;
+  }
+
+  function drawPianoRoll(segment) {
+    const canvas = $("#piano-roll");
+    if (!canvas) return;
+    const rowHeight = 14;
+    const headerHeight = 24;
+    const keyboardWidth = 48;
+    const minMidi = 48;
+    const maxMidi = 84;
+    const beatSeconds = 60 / Math.max(30, Number(state.editor.tempo) || 120);
+    const pxPerBeat = Number(state.editor.zoom) || 72;
+    const notes = state.editor.previewNotes || segment.notes || [];
+    const totalBeats = notes.reduce((sum, item) => sum + Math.max(0, Number(item.duration) || 0) / beatSeconds, 0);
+    const width = Math.max(560, keyboardWidth + (Math.ceil(totalBeats) + 4) * pxPerBeat);
+    const height = headerHeight + (maxMidi - minMidi + 1) * rowHeight;
+    const ratio = window.devicePixelRatio || 1;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    const context = canvas.getContext("2d");
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, width, height);
+    const blackKeys = new Set([1, 3, 6, 8, 10]);
+    for (let midi = maxMidi; midi >= minMidi; midi--) {
+      const y = headerHeight + (maxMidi - midi) * rowHeight;
+      context.fillStyle = blackKeys.has(midi % 12) ? "#f1f3f1" : "#fff";
+      context.fillRect(keyboardWidth, y, width - keyboardWidth, rowHeight);
+      context.fillStyle = "#f4f6f3";
+      context.fillRect(0, y, keyboardWidth - 1, rowHeight);
+      if (midi % 12 === 0) {
+        context.fillStyle = "#67777a";
+        context.font = "10px sans-serif";
+        context.fillText(`C${midi / 12 - 1}`, 7, y + 10);
+      }
+      context.strokeStyle = midi % 12 === 0 ? "#bac6bf" : "#e4e9e5";
+      context.beginPath();
+      context.moveTo(0, y + rowHeight);
+      context.lineTo(width, y + rowHeight);
+      context.stroke();
+    }
+    const numerator = Math.max(1, Number(state.editor.numerator) || 4);
+    const denominator = Math.max(1, Number(state.editor.denominator) || 4);
+    const barBeats = numerator * 4 / denominator;
+    const denominatorBeat = 4 / denominator;
+    const gridStep = Math.min(1, denominatorBeat);
+    const tickCount = Math.ceil((width - keyboardWidth) / pxPerBeat / gridStep);
+    for (let tick = 0; tick <= tickCount; tick++) {
+      const beat = tick * gridStep;
+      const x = keyboardWidth + beat * pxPerBeat;
+      const barStart = Math.abs(beat / barBeats - Math.round(beat / barBeats)) < 0.001;
+      const beatStart = Math.abs(beat / denominatorBeat - Math.round(beat / denominatorBeat)) < 0.001;
+      context.strokeStyle = barStart ? "#aebbb3" : beatStart ? "#cbd4ce" : "#e3e8e4";
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x, height);
+      context.stroke();
+      if (barStart) {
+        context.fillStyle = "#65747a";
+        context.font = "10px sans-serif";
+        context.fillText(String(Math.floor(beat / barBeats) + 1), x + 3, 15);
+      }
+    }
+    context.strokeStyle = "#b8c2bc";
+    context.beginPath();
+    context.moveTo(keyboardWidth, 0);
+    context.lineTo(keyboardWidth, height);
+    context.stroke();
+    let elapsed = 0;
+    notes.forEach((item, index) => {
+      const duration = Math.max(0.02, Number(item.duration) || 0.25);
+      const midi = noteToMidi(item.note);
+      const x = keyboardWidth + elapsed / beatSeconds * pxPerBeat;
+      const noteWidth = Math.max(6, duration / beatSeconds * pxPerBeat - 2);
+      if (midi != null && midi >= minMidi && midi <= maxMidi) {
+        const y = headerHeight + (maxMidi - midi) * rowHeight + 1;
+        context.fillStyle = index === state.editor.selectedNote ? "#d55e4f" : "#218b7d";
+        context.strokeStyle = index === state.editor.selectedNote ? "#a13d33" : "#126b62";
+        context.beginPath();
+        context.roundRect(x + 1, y, noteWidth, rowHeight - 2, 3);
+        context.fill();
+        context.stroke();
+        context.save();
+        context.beginPath();
+        context.rect(x + 3, y, Math.max(0, noteWidth - 4), rowHeight - 2);
+        context.clip();
+        context.fillStyle = "#fff";
+        context.font = "10px sans-serif";
+        context.fillText(String(item.note), x + 5, y + 10);
+        context.restore();
+      }
+      elapsed += duration;
+    });
+    const playheadX = keyboardWidth + state.editor.playhead / beatSeconds * pxPerBeat;
+    context.strokeStyle = "#d55e4f";
+    context.lineWidth = 2;
+    context.beginPath();
+    context.moveTo(playheadX, 0);
+    context.lineTo(playheadX, height);
+    context.stroke();
+  }
+
+  function rawNoteEvents(raw) {
+    const pitches = String(raw.note_seq || "").split(/\s+/).filter(Boolean);
+    const durations = String(raw.note_dur || "").split(/\s+/).map(Number);
+    return pitches.map((pitch, index) => ({
+      note: pitch,
+      duration: Number.isFinite(durations[index]) && durations[index] > 0 ? durations[index] : 0.25,
+      sourceIndex: index,
+    }));
+  }
+
+  function interpolate(values, position) {
+    if (!values.length) return 0;
+    const bounded = Math.max(0, Math.min(values.length - 1, position));
+    const left = Math.floor(bounded);
+    const right = Math.min(values.length - 1, left + 1);
+    return values[left] + (values[right] - values[left]) * (bounded - left);
+  }
+
+  function commitNoteEvents(segmentIndex, oldNotes, newNotes) {
+    if (!newNotes.length) {
+      const status = $("#editor-status");
+      if (status) status.textContent = "最後の音符は削除できません";
+      return;
+    }
+    const oldTotal = oldNotes.reduce((sum, item) => sum + item.duration, 0);
+    const newTotal = newNotes.reduce((sum, item) => sum + item.duration, 0);
+    if (newTotal <= 0 || !Number.isFinite(newTotal)) return;
+    applySourceChange((segments) => {
+      const raw = segments[segmentIndex];
+      const oldPhoneDurations = String(raw.ph_dur || "").split(/\s+/).map(Number);
+      const ratio = oldTotal > 0 ? newTotal / oldTotal : 1;
+      raw.note_seq = newNotes.map((item) => item.note).join(" ");
+      raw.note_dur = newNotes.map((item) => item.duration.toFixed(5)).join(" ");
+      if (oldPhoneDurations.length) {
+        raw.ph_dur = oldPhoneDurations.map((value) => (value * ratio).toFixed(6)).join(" ");
+      }
+      if (raw.note_dur_seq) {
+        raw.note_dur_seq = String(raw.note_dur_seq).split(/\s+/).map(Number)
+          .map((value) => (value * ratio).toFixed(5)).join(" ");
+      }
+      ["note_glide", "note_slur"].forEach((key) => {
+        if (raw[key] == null) return;
+        const values = Array.isArray(raw[key]) ? raw[key] : String(raw[key]).split(/\s+/);
+        raw[key] = newNotes.map((item) =>
+          Number.isInteger(item.sourceIndex) && item.sourceIndex >= 0
+            ? (values[item.sourceIndex] ?? "0")
+            : "0",
+        ).join(" ");
+      });
+      const timestep = Number(raw.f0_timestep);
+      const oldF0 = String(raw.f0_seq || "").split(/\s+/).map(Number).filter(Number.isFinite);
+      if (timestep > 0 && oldF0.length) {
+        const frameCount = Math.max(1, Math.round(newTotal / timestep));
+        const oldStarts = [];
+        let oldElapsed = 0;
+        oldNotes.forEach((item) => {
+          oldStarts.push(oldElapsed);
+          oldElapsed += item.duration;
+        });
+        const newF0 = Array.from({length: frameCount}, (_, frame) => {
+          const time = frame * timestep;
+          let elapsed = 0;
+          for (let index = 0; index < newNotes.length; index++) {
+            const note = newNotes[index];
+            if (time <= elapsed + note.duration || index === newNotes.length - 1) {
+              const fraction = Math.max(0, Math.min(1, (time - elapsed) / note.duration));
+              const sourceIndex = Number.isInteger(note.sourceIndex) ? note.sourceIndex : -1;
+              if (sourceIndex >= 0 && sourceIndex < oldNotes.length) {
+                const oldNote = oldNotes[sourceIndex];
+                const sourceTime = oldStarts[sourceIndex] + fraction * oldNote.duration;
+                let value = interpolate(oldF0, sourceTime / timestep);
+                const oldMidi = noteToMidi(oldNote.note);
+                const newMidi = noteToMidi(note.note);
+                if (oldMidi != null && newMidi != null) value *= 2 ** ((newMidi - oldMidi) / 12);
+                return value;
+              }
+              const midi = noteToMidi(note.note);
+              return midi == null ? 0 : 440 * 2 ** ((midi - 69) / 12);
+            }
+            elapsed += note.duration;
+          }
+          return oldF0[oldF0.length - 1];
+        });
+        raw.f0_seq = newF0.map((value) => value.toFixed(2)).join(" ");
+      }
+    });
+  }
+
+  function restoreEdit(undo) {
+    const source = undo ? state.undoStack.pop() : state.redoStack.pop();
+    if (!source) return;
+    (undo ? state.redoStack : state.undoStack).push(state.sourceText);
+    state.sourceText = source;
+    state.inference = {...state.inference, ...normalizeSource(source)};
+    clearInferenceAudio();
+    resetSynthesisState();
+    syncActiveTrack();
+    updatePredictButton();
+    renderInference(state.segment || 0);
+    renderProjectTracks();
+  }
+
+  function bindEditor(segment) {
+    const canvas = $("#piano-roll");
+    const setStatus = (message) => {
+      const status = $("#editor-status");
+      if (status) status.textContent = message;
+    };
+    const redraw = () => drawPianoRoll(segment);
+    const snap = $("#editor-snap");
+    if (snap) snap.value = String(state.editor.snap);
+    document.querySelectorAll("[data-editor-tool]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.editor.tool = button.dataset.editorTool;
+        document.querySelectorAll("[data-editor-tool]").forEach((item) =>
+          item.setAttribute("aria-pressed", String(item === button)));
+        if (canvas) canvas.focus();
+      });
+    });
+    const tempo = $("#editor-tempo");
+    if (tempo) tempo.addEventListener("change", () => {
+      state.editor.tempo = Math.max(30, Math.min(300, Number(tempo.value) || 120));
+      tempo.value = String(state.editor.tempo);
+      redraw();
+    });
+    ["numerator", "denominator"].forEach((key) => {
+      const input = $(`#editor-${key}`);
+      if (input) input.addEventListener("change", () => {
+        state.editor[key] = Math.max(1, Math.min(16, Number(input.value) || 4));
+        input.value = String(state.editor[key]);
+        redraw();
+      });
+    });
+    if (snap) snap.addEventListener("change", () => {
+      state.editor.snap = Number(snap.value);
+    });
+    const zoom = $("#editor-zoom");
+    if (zoom) zoom.addEventListener("input", () => {
+      state.editor.zoom = Number(zoom.value);
+      redraw();
+    });
+    $("#editor-undo").addEventListener("click", () => restoreEdit(true));
+    $("#editor-redo").addEventListener("click", () => restoreEdit(false));
+    $("#export-ds").addEventListener("click", exportActiveDs);
+    $("#apply-lyrics").addEventListener("click", () => {
+      const text = $("#editor-text").value;
+      const phonemes = $("#editor-phonemes").value.trim().split(/\s+/).filter(Boolean);
+      if (!phonemes.length) {
+        setStatus("音素列を空にはできません");
+        return;
+      }
+      applySourceChange((segments) => {
+        const raw = segments[state.segment];
+        const previous = String(raw.ph_dur || "").split(/\s+/).map(Number).filter(Number.isFinite);
+        const total = previous.reduce((sum, value) => sum + value, 0) || 0.5;
+        raw.text = text;
+        raw.ph_seq = phonemes.join(" ");
+        raw.ph_dur = phonemes.map((_, index) =>
+          (previous[index] ?? total / phonemes.length).toFixed(6)).join(" ");
+        if (previous.length !== phonemes.length) {
+          const adjusted = phonemes.map((_, index) => previous[index] ?? total / phonemes.length);
+          const adjustedTotal = adjusted.reduce((sum, value) => sum + value, 0);
+          raw.ph_dur = adjusted.map((value) => (value * total / adjustedTotal).toFixed(6)).join(" ");
+        }
+      });
+    });
+    $("#transport-play").addEventListener("click", startTransport);
+    $("#transport-stop").addEventListener("click", stopTransport);
+    if (!canvas) return;
+    const coordinates = (event) => {
+      const bounds = canvas.getBoundingClientRect();
+      return {
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      };
+    };
+    const noteAt = (point, notes) => {
+      const keyboardWidth = 48;
+      const headerHeight = 24;
+      const rowHeight = 14;
+      const midi = 84 - Math.floor((point.y - headerHeight) / rowHeight);
+      const beatSeconds = 60 / state.editor.tempo;
+      const beat = (point.x - keyboardWidth) / state.editor.zoom;
+      let elapsed = 0;
+      for (let index = 0; index < notes.length; index++) {
+        const duration = notes[index].duration;
+        const startBeat = elapsed / beatSeconds;
+        const endBeat = (elapsed + duration) / beatSeconds;
+        const noteMidi = noteToMidi(notes[index].note);
+        if (beat >= startBeat && beat <= endBeat && noteMidi === midi) {
+          return {index, nearEnd: beat >= endBeat - Math.min(0.18, (endBeat - startBeat) / 4)};
+        }
+        elapsed += duration;
+      }
+      return null;
+    };
+    let drag = null;
+    canvas.addEventListener("pointerdown", (event) => {
+      const point = coordinates(event);
+      const notes = rawNoteEvents(sourceSegments()[state.segment] || {});
+      const hit = noteAt(point, notes);
+      if (state.editor.tool === "erase") {
+        if (hit) commitNoteEvents(state.segment, notes, notes.filter((_, index) => index !== hit.index));
+        return;
+      }
+      if (state.editor.tool === "draw") {
+        const total = notes.reduce((sum, item) => sum + item.duration, 0);
+        const targetBeat = (point.x - 48) / state.editor.zoom;
+        if (targetBeat * (60 / state.editor.tempo) < total - 0.05) {
+          setStatus("追加位置をフレーズ末尾へ移動してください");
+          return;
+        }
+        const midi = Math.max(48, Math.min(84, 84 - Math.floor((point.y - 24) / 14)));
+        notes.push({note: midiToNote(midi), duration: snapBeat(0.5) * 60 / state.editor.tempo, sourceIndex: -1});
+        state.editor.selectedNote = notes.length - 1;
+        commitNoteEvents(state.segment, rawNoteEvents(sourceSegments()[state.segment] || {}), notes);
+        return;
+      }
+      if (!hit) {
+        state.editor.selectedNote = -1;
+        redraw();
+        return;
+      }
+      state.editor.selectedNote = hit.index;
+      drag = {
+        point,
+        notes,
+        index: hit.index,
+        mode: hit.nearEnd ? "resize" : "pitch",
+        originalDuration: notes[hit.index].duration,
+        changed: false,
+      };
+      canvas.setPointerCapture(event.pointerId);
+      redraw();
+    });
+    canvas.addEventListener("pointermove", (event) => {
+      if (!drag) return;
+      const point = coordinates(event);
+      const edited = drag.notes.map((item) => ({...item}));
+      if (drag.mode === "resize") {
+        const deltaBeats = (point.x - drag.point.x) / state.editor.zoom;
+        const minimum = state.editor.snap > 0 ? state.editor.snap : 0.05;
+        edited[drag.index].duration = Math.max(
+          minimum * 60 / state.editor.tempo,
+          snapBeat(drag.originalDuration * state.editor.tempo / 60 + deltaBeats) * 60 / state.editor.tempo,
+        );
+      } else {
+        const midi = Math.max(48, Math.min(84, 84 - Math.floor((point.y - 24) / 14)));
+        edited[drag.index].note = midiToNote(midi);
+      }
+      drag.changed ||= edited.some((item, index) =>
+        item.note !== drag.notes[index].note || Math.abs(item.duration - drag.notes[index].duration) > 0.00001);
+      state.editor.previewNotes = edited;
+      redraw();
+    });
+    const endDrag = () => {
+      if (!drag) return;
+      const edited = state.editor.previewNotes || drag.notes;
+      const changed = drag.changed && edited.some((item, index) =>
+        item.note !== drag.notes[index].note || Math.abs(item.duration - drag.notes[index].duration) > 0.00001);
+      state.editor.previewNotes = null;
+      const oldNotes = rawNoteEvents(sourceSegments()[state.segment] || {});
+      drag = null;
+      if (changed) commitNoteEvents(state.segment, oldNotes, edited);
+      else redraw();
+    };
+    canvas.addEventListener("pointerup", endDrag);
+    canvas.addEventListener("pointercancel", endDrag);
+    canvas.addEventListener("keydown", (event) => {
+      const index = state.editor.selectedNote;
+      if (index < 0) return;
+      const notes = rawNoteEvents(sourceSegments()[state.segment] || {});
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        commitNoteEvents(state.segment, notes, notes.filter((_, itemIndex) => itemIndex !== index));
+      } else if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) {
+        event.preventDefault();
+        const edited = notes.map((item) => ({...item}));
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+          const midi = noteToMidi(edited[index].note);
+          if (midi != null) edited[index].note = midiToNote(midi + (event.key === "ArrowUp" ? 1 : -1));
+        } else if (event.shiftKey) {
+          const delta = state.editor.snap * 60 / state.editor.tempo * (event.key === "ArrowRight" ? 1 : -1);
+          edited[index].duration = Math.max(0.03, edited[index].duration + delta);
+        } else {
+          const target = Math.max(0, Math.min(edited.length - 1, index + (event.key === "ArrowRight" ? 1 : -1)));
+          [edited[index], edited[target]] = [edited[target], edited[index]];
+          state.editor.selectedNote = target;
+        }
+        commitNoteEvents(state.segment, notes, edited);
+      }
+    });
+    drawPianoRoll(segment);
+  }
+
+  function downloadText(filename, content, type) {
+    const url = URL.createObjectURL(new Blob([content], {type}));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function exportActiveDs() {
+    if (!state.sourceText) return;
+    syncActiveTrack();
+    const baseName = state.sourceName.replace(/\.[^.]+$/, "") || "track";
+    downloadText(`${baseName}.ds`, state.sourceText, "application/json;charset=utf-8");
+  }
+
+  async function arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+    }
+    return btoa(binary);
+  }
+
+  function base64ToArrayBuffer(value) {
+    const binary = atob(value);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++) bytes[index] = binary.charCodeAt(index);
+    return bytes.buffer;
+  }
+
+  function clearBgmData() {
+    if (state.bgm?.url) URL.revokeObjectURL(state.bgm.url);
+    state.bgm = null;
+  }
+
+  async function setBgmData(name, bytes, mimeType = "audio/wav", offset = 0, gain = 0.7) {
+    stopTransport();
+    if (state.bgm?.url) URL.revokeObjectURL(state.bgm.url);
+    const decoder = new AudioContext();
+    try {
+      const buffer = await decoder.decodeAudioData(bytes.slice(0));
+      state.bgm = {
+        name,
+        bytes,
+        mimeType,
+        buffer,
+        url: URL.createObjectURL(new Blob([bytes], {type: mimeType})),
+        offset: Math.max(0, Number(offset) || 0),
+        gain: Math.max(0, Number(gain) || 0),
+      };
+    } finally {
+      await decoder.close();
+    }
+    if (state.generatedAudio) clearInferenceAudio();
+    if (state.inference && /\.(ds|json)$/i.test(state.sourceName)) renderInference(state.segment || 0);
+  }
+
+  async function loadBgmFile(file) {
+    const bytes = await file.arrayBuffer();
+    await setBgmData(file.name, bytes, file.type || "audio/wav");
+  }
+
+  async function saveProject() {
+    if (!state.projectTracks.length) return;
+    syncActiveTrack();
+    const project = {
+      format: "diffsinger-web-editor",
+      version: 1,
+      tempo: state.editor.tempo,
+      time_signature: [state.editor.numerator, state.editor.denominator],
+      tracks: state.projectTracks.map((track) => ({
+        name: track.name,
+        source_name: track.sourceName,
+        source_text: track.sourceText,
+        mix_offset: Number(track.mixOffset) || 0,
+        gain: Number(track.gain ?? 1),
+      })),
+      bgm: state.bgm ? {
+        name: state.bgm.name,
+        mime_type: state.bgm.mimeType,
+        offset: state.bgm.offset,
+        gain: state.bgm.gain,
+        data_base64: await arrayBufferToBase64(state.bgm.bytes),
+      } : null,
+    };
+    const baseName = state.projectTracks[0].name.replace(/\.[^.]+$/, "") || "project";
+    downloadText(`${baseName}.dsproj`, JSON.stringify(project, null, 2), "application/json;charset=utf-8");
+  }
+
+  function renderProjectTracks() {
+    const list = $("#track-list");
+    if (!list) return;
+    $("#save-project").disabled = state.projectTracks.length === 0;
+    list.innerHTML = state.projectTracks.map((track, index) =>
+      `<div class="project-track"><button type="button" class="track-button ${index === state.activeTrackIndex ? "active" : ""}" data-track-index="${index}" title="${escapeHtml((track.importWarnings || []).join(" / "))}"><span class="track-dot"></span><span>${escapeHtml(track.name)}</span><span class="count">${track.inference.segments.length} parts</span></button>${state.projectTracks.length > 1 ? `<button type="button" class="track-remove" data-remove-track="${index}" aria-label="${escapeHtml(track.name)}を削除">×</button>` : ""}</div>`,
+    ).join("");
+    list.querySelectorAll("[data-track-index]").forEach((button) => button.addEventListener("click", () => {
+      const index = Number(button.dataset.trackIndex);
+      if (index === state.activeTrackIndex) return;
+      syncActiveTrack();
+      stopTransport();
+      resetSynthesisState();
+      clearInferenceAudio();
+      state.activeTrackIndex = index;
+      state.segment = 0;
+      state.editor.selectedNote = -1;
+      const track = state.projectTracks[index];
+      state.sourceName = track.sourceName;
+      state.sourceText = track.sourceText;
+      state.inference = track.inference;
+      state.undoStack = [];
+      state.redoStack = [];
+      updatePredictButton();
+      renderInference();
+      renderProjectTracks();
+    }));
+    list.querySelectorAll("[data-remove-track]").forEach((button) => button.addEventListener("click", () => {
+      if (state.projectTracks.length <= 1) return;
+      const removedIndex = Number(button.dataset.removeTrack);
+      stopTransport();
+      resetSynthesisState();
+      clearInferenceAudio();
+      state.projectTracks.splice(removedIndex, 1);
+      if (removedIndex === state.activeTrackIndex) {
+        state.activeTrackIndex = Math.max(0, removedIndex - 1);
+        state.segment = 0;
+        state.editor.selectedNote = -1;
+        const track = state.projectTracks[state.activeTrackIndex];
+        state.sourceName = track.sourceName;
+        state.sourceText = track.sourceText;
+        state.inference = track.inference;
+        state.undoStack = [];
+        state.redoStack = [];
+        updatePredictButton();
+        renderInference();
+      } else if (removedIndex < state.activeTrackIndex) {
+        state.activeTrackIndex--;
+      }
+      renderProjectTracks();
+    }));
+  }
+
+  function setProjectTracks(tracks) {
+    if (!tracks.length) throw new Error("プロジェクトにトラックがありません");
+    stopTransport();
+    resetSynthesisState();
+    clearInferenceAudio();
+    state.projectTracks = tracks;
+    state.activeTrackIndex = 0;
+    state.segment = 0;
+    state.editor.selectedNote = -1;
+    state.active = -1;
+    state.sourceName = tracks[0].sourceName;
+    state.sourceText = tracks[0].sourceText;
+    state.inference = tracks[0].inference;
+    state.undoStack = [];
+    state.redoStack = [];
+    updatePredictButton();
+    renderProjectTracks();
+  }
+
+  let transportAudio = null;
+
+  function stopTransport() {
+    if (state.transportFrame) cancelAnimationFrame(state.transportFrame);
+    state.transportFrame = 0;
+    if (state.transportTimer) clearTimeout(state.transportTimer);
+    state.transportTimer = 0;
+    if (state.livePlayback) {
+      state.livePlayback.stopped = true;
+      cancelAnimationFrame(state.livePlayback.frame);
+      state.livePlayback.sources.forEach((source) => source.stop());
+      state.livePlayback.sources.clear();
+    }
+    if (transportAudio) {
+      transportAudio.pause();
+      transportAudio = null;
+    }
+    state.editor.playhead = 0;
+    if (state.inference?.segments?.[state.segment || 0]) {
+      drawPianoRoll(state.inference.segments[state.segment || 0]);
+    }
+  }
+
+  function startTransport() {
+    const playbackUrl = state.audioUrl || state.bgm?.url;
+    if (!playbackUrl) {
+      const status = $("#editor-status");
+      if (status) status.textContent = "再生する音声がありません。WAVを合成するか読み込んでください";
+      return;
+    }
+    stopTransport();
+    transportAudio = new Audio(playbackUrl);
+    if (!state.audioUrl && state.bgm) transportAudio.volume = Math.min(1, state.bgm.gain);
+    const offset = Number(state.inference?.segments?.[state.segment || 0]?.offset) || 0;
+    transportAudio.addEventListener("loadedmetadata", () => {
+      if (offset < transportAudio.duration) transportAudio.currentTime = offset;
+    }, {once: true});
+    transportAudio.addEventListener("ended", stopTransport, {once: true});
+    const play = () => {
+      transportAudio?.play().then(() => {
+        const update = () => {
+          if (!transportAudio) return;
+          state.editor.playhead = Math.max(0, transportAudio.currentTime - offset);
+          const current = state.inference?.segments?.[state.segment || 0];
+          if (current) drawPianoRoll(current);
+          state.transportFrame = requestAnimationFrame(update);
+        };
+        state.transportFrame = requestAnimationFrame(update);
+      }).catch((error) => {
+        const status = $("#editor-status");
+        if (status) status.textContent = `再生に失敗しました: ${error.message}`;
+      });
+    };
+    if (!state.audioUrl && state.bgm?.offset > 0) {
+      state.transportTimer = setTimeout(play, state.bgm.offset * 1000);
+    } else {
+      play();
+    }
+  }
+
+  function applyProjectSettings(project) {
+    state.editor.tempo = Math.max(30, Math.min(300, Number(project.tempo) || 120));
+    const signature = Array.isArray(project.time_signature) ? project.time_signature : [4, 4];
+    state.editor.numerator = Math.max(1, Math.min(16, Number(signature[0]) || 4));
+    state.editor.denominator = Math.max(1, Math.min(16, Number(signature[1]) || 4));
+  }
+
+  function trackDuration(track) {
+    return track.inference.segments.reduce((end, segment) => {
+      const duration = segment.notes.reduce((sum, note) => sum + (Number(note.duration) || 0), 0) ||
+        segment.phonemes.reduce((sum, phone) => sum + (Number(phone.duration) || 0), 0);
+      return Math.max(end, (Number(track.mixOffset) || 0) + (Number(segment.offset) || 0) + duration);
+    }, 0);
+  }
+
+  function renderArrangement() {
+    const trackNames = state.projectTracks.map((track) => escapeHtml(track.name)).join(" / ");
+    return `<section class="arrangement" aria-label="BGMと歌声トラックのタイミング編集">
+      <div class="arrangement-head"><span>タイミング合わせ · BGM / 歌声 ${state.projectTracks.length} トラック</span><span>${trackNames}</span></div>
+      <div class="arrangement-controls">
+        <label>BGM位置 (秒) <input id="bgm-offset" type="number" min="0" step="0.01" value="${Number(state.bgm?.offset || 0).toFixed(2)}" ${state.bgm ? "" : "disabled"}></label>
+        <label>BGM音量 <input id="bgm-gain" type="range" min="0" max="1.5" step="0.01" value="${Number(state.bgm?.gain ?? 0.7)}" ${state.bgm ? "" : "disabled"}></label>
+        <label>歌声トラック <select id="mix-track-select">${state.projectTracks.map((track, index) => `<option value="${index}" ${index === state.activeTrackIndex ? "selected" : ""}>${escapeHtml(track.name)}</option>`).join("")}</select></label>
+        <label>位置 (秒) <input id="voice-offset" type="number" min="0" step="0.01" value="${Number(state.projectTracks[state.activeTrackIndex]?.mixOffset || 0).toFixed(2)}"></label>
+        <label>音量 <input id="voice-gain" type="range" min="0" max="1.5" step="0.01" value="${Number(state.projectTracks[state.activeTrackIndex]?.gain ?? 1)}"></label>
+        <button type="button" id="play-arrangement" ${state.bgm || state.audioUrl ? "" : "disabled"}>▶ 音源を再生</button>
+        <button type="button" id="remix-arrangement" ${state.projectTracks.some((track) => track.synthesisBlob) ? "" : "disabled"}>ミックスを更新</button>
+        <button type="button" id="clear-bgm" ${state.bgm ? "" : "disabled"}>BGMを外す</button>
+      </div>
+      <div class="arrangement-scroll"><canvas id="arrangement-wave" tabindex="0" aria-label="BGMと歌声トラックの波形・位置"></canvas></div>
+      <div class="arrangement-help">波形を左右にドラッグしてBGM位置を合わせます。歌声レーンをドラッグするとトラック位置を調整します。最終ミックスは「全歌声トラックを合成・ミックス」で作成します。</div>
+    </section>`;
+  }
+
+  function drawArrangement() {
+    const canvas = $("#arrangement-wave");
+    if (!canvas) return;
+    const pxPerSecond = 80;
+    const labelWidth = 100;
+    const rowHeight = 32;
+    const height = 22 + rowHeight * (state.projectTracks.length + 1);
+    const lastVoice = state.projectTracks.reduce((end, track) => Math.max(end, trackDuration(track)), 0);
+    const bgmDuration = state.bgm?.buffer?.duration || 0;
+    const totalTime = Math.max(8, lastVoice, bgmDuration + Number(state.bgm?.offset || 0));
+    const width = Math.max(560, labelWidth + totalTime * pxPerSecond + 40);
+    const ratio = window.devicePixelRatio || 1;
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    const context = canvas.getContext("2d");
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    context.fillStyle = "#fff";
+    context.fillRect(0, 0, width, height);
+    for (let second = 0; second <= totalTime; second++) {
+      const x = labelWidth + second * pxPerSecond;
+      context.strokeStyle = second % 5 === 0 ? "#cbd5ce" : "#e8ede9";
+      context.beginPath();
+      context.moveTo(x, 0);
+      context.lineTo(x, height);
+      context.stroke();
+      context.fillStyle = "#65747a";
+      context.font = "9px sans-serif";
+      context.fillText(`${second}s`, x + 3, 12);
+    }
+    const drawLane = (row, label, color) => {
+      const y = 22 + row * rowHeight;
+      context.fillStyle = "#f4f7f4";
+      context.fillRect(0, y, labelWidth - 1, rowHeight);
+      context.fillStyle = "#52625f";
+      context.font = "10px sans-serif";
+      context.fillText(label.slice(0, 15), 6, y + 19);
+      context.strokeStyle = "#e3e8e4";
+      context.beginPath();
+      context.moveTo(0, y + rowHeight);
+      context.lineTo(width, y + rowHeight);
+      context.stroke();
+      return {y, color};
+    };
+    const bgmLane = drawLane(0, state.bgm?.name || "BGM 未読込", "#4b91a0");
+    if (state.bgm?.buffer) {
+      const buffer = state.bgm.buffer;
+      const channel = buffer.getChannelData(0);
+      const startX = labelWidth + Math.max(0, Number(state.bgm.offset) || 0) * pxPerSecond;
+      const drawnWidth = buffer.duration * pxPerSecond;
+      const midY = bgmLane.y + rowHeight / 2;
+      context.fillStyle = "rgba(75,145,160,.25)";
+      context.fillRect(startX, bgmLane.y + 2, drawnWidth, rowHeight - 4);
+      context.strokeStyle = bgmLane.color;
+      context.beginPath();
+      const step = Math.max(1, Math.floor(channel.length / Math.max(1, Math.floor(drawnWidth))));
+      for (let x = 0; x < drawnWidth; x++) {
+        const from = Math.floor(x * step);
+        const to = Math.min(channel.length, from + step);
+        let peak = 0;
+        for (let sample = from; sample < to; sample += Math.max(1, Math.floor(step / 16))) {
+          peak = Math.max(peak, Math.abs(channel[sample]));
+        }
+        const amplitude = peak * (rowHeight * 0.42);
+        context.moveTo(startX + x, midY - amplitude);
+        context.lineTo(startX + x, midY + amplitude);
+      }
+      context.stroke();
+    }
+    state.projectTracks.forEach((track, index) => {
+      const lane = drawLane(index + 1, `歌声 ${track.name}`, "#258b7b");
+      for (const segment of track.inference.segments) {
+        const duration = segment.notes.reduce((sum, note) => sum + (Number(note.duration) || 0), 0) ||
+          segment.phonemes.reduce((sum, phone) => sum + (Number(phone.duration) || 0), 0);
+        const start = (Number(track.mixOffset) || 0) + (Number(segment.offset) || 0);
+        const x = labelWidth + start * pxPerSecond;
+        const barWidth = Math.max(2, duration * pxPerSecond);
+        context.fillStyle = lane.color;
+        context.globalAlpha = index === state.activeTrackIndex ? 0.85 : 0.55;
+        context.fillRect(x, lane.y + 7, barWidth, rowHeight - 14);
+        context.globalAlpha = 1;
+        context.fillStyle = "#fff";
+        context.font = "9px sans-serif";
+        if (barWidth > 35) context.fillText(segment.text || "音符", x + 4, lane.y + 19, barWidth - 6);
+      }
+    });
+    const previewOffset = state.arrangementDrag ? state.arrangementDrag.previewOffset : null;
+    if (state.arrangementDrag?.type === "bgm" && previewOffset != null && bgmDuration) {
+      const x = labelWidth + Math.max(0, previewOffset) * pxPerSecond;
+      context.strokeStyle = "#d55e4f";
+      context.setLineDash([4, 3]);
+      context.strokeRect(x, bgmLane.y + 2, bgmDuration * pxPerSecond, rowHeight - 4);
+      context.setLineDash([]);
+    }
+  }
+
+  function bindArrangement() {
+    const offsetInput = $("#bgm-offset");
+    const gainInput = $("#bgm-gain");
+    if (offsetInput) offsetInput.addEventListener("change", () => {
+      if (!state.bgm) return;
+      state.bgm.offset = Math.max(0, Number(offsetInput.value) || 0);
+      offsetInput.value = state.bgm.offset.toFixed(2);
+      if (state.generatedAudio) clearInferenceAudio();
+      drawArrangement();
+    });
+    if (gainInput) gainInput.addEventListener("input", () => {
+      if (state.bgm) {
+        state.bgm.gain = Math.max(0, Number(gainInput.value) || 0);
+        if (state.generatedAudio) clearInferenceAudio();
+      }
+    });
+    const trackSelect = $("#mix-track-select");
+    const voiceOffset = $("#voice-offset");
+    const voiceGain = $("#voice-gain");
+    const updateVoiceControls = () => {
+      const track = state.projectTracks[Number(trackSelect?.value)];
+      if (!track) return;
+      if (voiceOffset) voiceOffset.value = Number(track.mixOffset || 0).toFixed(2);
+      if (voiceGain) voiceGain.value = String(Number(track.gain ?? 1));
+    };
+    if (trackSelect) trackSelect.addEventListener("change", updateVoiceControls);
+    if (voiceOffset) voiceOffset.addEventListener("change", () => {
+      const track = state.projectTracks[Number(trackSelect?.value)];
+      if (!track) return;
+      track.mixOffset = Math.max(0, Number(voiceOffset.value) || 0);
+      voiceOffset.value = track.mixOffset.toFixed(2);
+      if (state.generatedAudio) clearInferenceAudio();
+      drawArrangement();
+    });
+    if (voiceGain) voiceGain.addEventListener("input", () => {
+      const track = state.projectTracks[Number(trackSelect?.value)];
+      if (track) {
+        track.gain = Math.max(0, Number(voiceGain.value) || 0);
+        if (state.generatedAudio) clearInferenceAudio();
+      }
+    });
+    const canvas = $("#arrangement-wave");
+    if (!canvas) return;
+    canvas.addEventListener("pointerdown", (event) => {
+      const rect = canvas.getBoundingClientRect();
+      const y = event.clientY - rect.top;
+      const row = Math.floor((y - 22) / 32);
+      if (row === 0 && state.bgm) {
+        state.arrangementDrag = {type: "bgm", startX: event.clientX, originalOffset: state.bgm.offset || 0, previewOffset: state.bgm.offset || 0};
+      } else if (row > 0 && row <= state.projectTracks.length) {
+        const track = state.projectTracks[row - 1];
+        state.arrangementDrag = {type: "voice", track, startX: event.clientX, originalOffset: Number(track.mixOffset) || 0, previewOffset: Number(track.mixOffset) || 0};
+      } else {
+        return;
+      }
+      canvas.setPointerCapture(event.pointerId);
+    });
+    canvas.addEventListener("pointermove", (event) => {
+      const drag = state.arrangementDrag;
+      if (!drag) return;
+      drag.previewOffset = Math.max(0, drag.originalOffset + (event.clientX - drag.startX) / 80);
+      drawArrangement();
+    });
+    const finishDrag = () => {
+      const drag = state.arrangementDrag;
+      if (!drag) return;
+      if (drag.type === "bgm" && state.bgm) {
+        state.bgm.offset = drag.previewOffset;
+        const input = $("#bgm-offset");
+        if (input) input.value = state.bgm.offset.toFixed(2);
+      } else if (drag.track) {
+        drag.track.mixOffset = drag.previewOffset;
+      }
+      if (state.generatedAudio) clearInferenceAudio();
+      state.arrangementDrag = null;
+      drawArrangement();
+    };
+    canvas.addEventListener("pointerup", finishDrag);
+    canvas.addEventListener("pointercancel", finishDrag);
+    $("#play-arrangement").addEventListener("click", startTransport);
+    $("#remix-arrangement").addEventListener("click", remixCachedTracks);
+    $("#clear-bgm").addEventListener("click", () => {
+      clearBgmData();
+      if (state.generatedAudio) clearInferenceAudio();
+      drawArrangement();
+      renderInference(state.segment || 0);
+    });
+    drawArrangement();
+  }
+
+  function renderTraining() {
+    const record = state.training[state.active];
+    if (!record) return;
+    const labels = record.labels;
+    const duration = record.duration;
+    $("#detail").innerHTML = `
+      <div class="content-head"><div><h2>${escapeHtml(record.name)}</h2><div class="subtitle">教師ラベル · HTK LAB アラインメント</div></div><div class="stats"><div class="stat"><span>音声長</span><strong>${seconds(duration)}</strong></div><div class="stat"><span>音素数</span><strong>${labels.length}</strong></div></div></div>
+      <div class="section-label"><span>教師音声スペクトログラム</span><span>境界線: LAB音素区間</span></div>
+      <canvas class="spectrogram" id="spectrogram" aria-label="教師音声スペクトログラム"></canvas>
+      <div class="time-axis"><span>0.00 s</span><span>${seconds(duration)}</span></div>
+      <div class="section-label"><span>教師音素タイムライン</span><span>縦線: 音素境界</span></div>
+      ${timeline(labels.map((item) => ({...item, duration: item.end - item.start})), "音素", duration)}
+      <div class="audio-row"><audio controls preload="none" src="${escapeHtml(record.audio)}"></audio></div>
+      <div class="section-label"><span>音素アラインメント</span><span>秒</span></div>
+      ${renderTable(labels)}`;
+    drawSpectrogram(record.audio, {duration, labels});
+  }
+
+  function renderInference(segmentIndex = 0) {
+    const data = state.inference;
+    if (!data || !data.segments.length) return;
+    state.segment = Math.min(segmentIndex, data.segments.length - 1);
+    const segment = data.segments[state.segment];
+    const phones = segment.phonemes || [];
+    const notes = segment.notes || [];
+    const unsupported = unsupportedPhones();
+    const untrained = untrainedPhones();
+    const editable = /\.(ds|json)$/i.test(state.sourceName);
+    const sum = phones.reduce((total, item) => total + (Number(item.duration) || 0), 0);
+    const noteSum = notes.reduce((total, item) => total + (Number(item.duration) || 0), 0);
+    const estimated = phones.some((item) => item.duration == null);
+    const noteTrack = notes.length ? `<div class="section-label"><span>入力ノート</span><span>${notes.length} 音符</span></div>${timeline(notes, "音符", sum)}` : "";
+    const segmentSelect = data.segments.length > 1 ? `<label class="subtitle">フレーズ <select id="segment-select">${data.segments.map((item, index) => `<option value="${index}" ${index === state.segment ? "selected" : ""}>${index + 1} · ${escapeHtml((item.text || "無題").slice(0, 22))}</option>`).join("")}</select></label>` : "";
+    const audioUrl = state.audioUrl;
+    const modelVersion = data.checkpoint == null ? "事前学習済み" : `step ${data.checkpoint}`;
+    const predictedBy = data.model ? ` · ${escapeHtml(data.model)} / ${modelVersion}` : "";
+    const calibratedLeadingCount = Number(data.calibrated_leading_count) || 0;
+    const phonemeTable = phones.map((item, index) => {
+      const start = phones.slice(0, index).reduce((total, phone) => total + (Number(phone.duration) || 0), 0);
+      return {...item, start, end: start + (Number(item.duration) || 0)};
+    });
+    $("#detail").innerHTML = `
+      <div class="content-head"><div><h2>${escapeHtml(data.name)}</h2><div class="subtitle">推論入力 · 音素列${segment.text ? ` · ${escapeHtml(segment.text)}` : ""}${predictedBy}</div></div><div class="stats"><div class="stat"><span>音素数</span><strong>${phones.length}</strong></div><div class="stat"><span>Duration</span><strong>${sum ? seconds(sum) : "—"}</strong></div></div></div>
+      ${segmentSelect}
+      ${editable ? renderEditor(segment, state.segment) : ""}
+      ${editable ? renderArrangement() : ""}
+      ${state.synthesisRunning || state.synthesisLogs.length ? `<div class="synthesis-monitor" aria-live="polite"><div class="section-label"><span>リアルタイム合成 · フレーズ ${state.synthesisCompleted}/${state.synthesisTotal || data.segments.length}</span><span id="synthesis-progress-label">${state.synthesisRunning ? "処理中" : "完了"}</span></div><progress id="synthesis-progress" max="${state.synthesisTotal || data.segments.length}" value="${state.synthesisCompleted}"></progress><canvas class="live-spectrogram" id="live-spectrogram" aria-label="合成中のリアルタイムスペクトログラム"></canvas><pre class="synthesis-log" id="synthesis-log">${state.synthesisLogs.map(escapeHtml).join("\n")}</pre></div>` : ""}
+      ${audioUrl ? `<div class="section-label"><span>推論音声スペクトログラム</span><span>境界線: 予測音素duration</span></div><canvas class="spectrogram" id="spectrogram" aria-label="推論音声スペクトログラム"></canvas><div class="time-axis"><span>フレーズ開始</span><span>${seconds(noteSum || sum)}</span></div>` : '<div class="empty">対応する推論WAVを選ぶと、ここにスペクトログラムが表示されます</div>'}
+      <div class="section-label"><span>推論音素タイムライン</span><span>縦線: 音素境界</span></div>
+      ${timeline(phones, "音素", sum)}
+      ${audioUrl ? `<div class="inference-actions"><audio controls preload="metadata" src="${escapeHtml(audioUrl)}"></audio>${state.generatedAudio ? `<a href="${escapeHtml(audioUrl)}" download="synthesis.wav">合成WAVを保存</a>` : ""}</div>` : ""}
+      ${noteTrack}
+      ${calibratedLeadingCount ? `<div class="notice">句頭音素${calibratedLeadingCount}件を教師データ平均へ近づけ、最大0.30秒に調整しました。余剰時間は後続音素へ配分しています。</div>` : ""}
+      ${estimated ? '<div class="notice">ph_durのない音素は順序のみ表示しています。表示幅は均等で、予測durationではありません。</div>' : ""}
+      ${segment.duration_mismatch ? '<div class="notice">警告: ph_seqとph_durの数が一致しません。時間のない音素があります。</div>' : ""}
+      ${unsupported.length ? `<div class="notice">選択モデルの学習辞書にない音素: ${unsupported.map(escapeHtml).join(" ")}。推論は実行できません。</div>` : ""}
+      ${untrained.length ? `<div class="notice">教師例がなく未学習の音素: ${untrained.map(escapeHtml).join(" ")}。推論できますが、予測品質は保証されません。</div>` : ""}
+      <div class="section-label"><span>DS音素一覧 · ph_seq</span><span>offset ${Number(segment.offset || 0).toFixed(2)} s</span></div>
+      ${renderTable(phonemeTable)}`;
+    if (audioUrl) {
+      const boundaries = [];
+      let elapsed = 0;
+      phones.slice(0, -1).forEach((phone) => {
+        elapsed += Number(phone.duration) || 0;
+        boundaries.push(sum ? elapsed / sum : 0);
+      });
+      drawSpectrogram(audioUrl, {
+        duration: noteSum || sum,
+        offset: Number(segment.offset) || 0,
+        boundaries,
+      });
+    }
+    const select = $("#segment-select");
+    if (select) select.addEventListener("change", () => {
+      stopTransport();
+      state.editor.selectedNote = -1;
+      renderInference(Number(select.value));
+    });
+    if (editable) {
+      bindEditor(segment);
+      bindArrangement();
+    }
+  }
+
+  async function drawSpectrogram(url, options = {}) {
+    const canvas = $("#spectrogram");
+    if (!canvas) return;
+    const context = canvas.getContext("2d");
+    const width = canvas.clientWidth || 500;
+    const height = canvas.clientHeight || 190;
+    canvas.width = width;
+    canvas.height = height;
+    try {
+      const audioData = await (await fetch(url)).arrayBuffer();
+      const audioContext = new AudioContext();
+      const buffer = await audioContext.decodeAudioData(audioData);
+      const channel = buffer.getChannelData(0);
+      const requestedOffset = Number(options.offset) || 0;
+      const requestedDuration = Number(options.duration) || buffer.duration;
+      const start = requestedOffset + requestedDuration <= buffer.duration ? requestedOffset : 0;
+      const duration = Math.min(requestedDuration, buffer.duration - start);
+      const fftSize = 1024;
+      const real = new Float32Array(fftSize);
+      const imaginary = new Float32Array(fftSize);
+      const image = context.createImageData(width, height);
+      const maxBin = Math.min(fftSize / 2, Math.floor(8000 * fftSize / buffer.sampleRate));
+      const bins = Array.from({length: height}, (_, y) => Math.min(maxBin, Math.max(1, Math.round((1 - y / height) * maxBin))));
+      const palette = (level) => {
+        const t = Math.max(0, Math.min(1, level));
+        return [Math.round(18 + 237 * t), Math.round(44 + 167 * Math.sin(t * Math.PI / 2)), Math.round(51 + 95 * (1 - t))];
+      };
+      const frameCount = width;
+      for (let frame = 0; frame < frameCount; frame++) {
+        const center = Math.round((start + duration * (frame + .5) / frameCount) * buffer.sampleRate);
+        for (let index = 0; index < fftSize; index++) {
+          const sample = channel[Math.max(0, Math.min(channel.length - 1, center + index - fftSize / 2))] || 0;
+          real[index] = sample * (.5 - .5 * Math.cos(2 * Math.PI * index / (fftSize - 1)));
+          imaginary[index] = 0;
+        }
+        for (let index = 1, reversed = 0; index < fftSize; index++) {
+          let bit = fftSize >> 1;
+          for (; reversed & bit; bit >>= 1) reversed ^= bit;
+          reversed ^= bit;
+          if (index < reversed) {
+            [real[index], real[reversed]] = [real[reversed], real[index]];
+            [imaginary[index], imaginary[reversed]] = [imaginary[reversed], imaginary[index]];
+          }
+        }
+        for (let size = 2; size <= fftSize; size <<= 1) {
+          const angle = -2 * Math.PI / size;
+          const stepReal = Math.cos(angle);
+          const stepImaginary = Math.sin(angle);
+          for (let offset = 0; offset < fftSize; offset += size) {
+            let factorReal = 1;
+            let factorImaginary = 0;
+            for (let index = 0; index < size / 2; index++) {
+              const even = offset + index;
+              const odd = even + size / 2;
+              const oddReal = real[odd] * factorReal - imaginary[odd] * factorImaginary;
+              const oddImaginary = real[odd] * factorImaginary + imaginary[odd] * factorReal;
+              real[odd] = real[even] - oddReal;
+              imaginary[odd] = imaginary[even] - oddImaginary;
+              real[even] += oddReal;
+              imaginary[even] += oddImaginary;
+              const nextReal = factorReal * stepReal - factorImaginary * stepImaginary;
+              factorImaginary = factorReal * stepImaginary + factorImaginary * stepReal;
+              factorReal = nextReal;
+            }
+          }
+        }
+        const x = Math.floor(frame * width / frameCount);
+        for (let y = 0; y < height; y++) {
+          const bin = bins[y];
+          const magnitude = Math.hypot(real[bin], imaginary[bin]) / fftSize;
+          const db = 20 * Math.log10(magnitude + 1e-8);
+          const color = palette((db + 75) / 65);
+          const pixel = (y * width + x) * 4;
+          image.data[pixel] = color[0];
+          image.data[pixel + 1] = color[1];
+          image.data[pixel + 2] = color[2];
+          image.data[pixel + 3] = 255;
+        }
+      }
+      context.putImageData(image, 0, 0);
+      const boundaries = options.boundaries || (options.labels || []).slice(0, -1).map((item) => item.end / duration);
+      context.strokeStyle = "#ff705e";
+      context.lineWidth = 1.5;
+      boundaries.forEach((point) => {
+        const x = Math.round(Math.max(0, Math.min(1, point)) * width) + .5;
+        context.beginPath();
+        context.moveTo(x, 0);
+        context.lineTo(x, height);
+        context.stroke();
+      });
+      await audioContext.close();
+    } catch (error) {
+      context.fillStyle = "#e4ece8";
+      context.font = "11px sans-serif";
+      context.fillText("スペクトログラムを読み込めません", 8, 20);
+    }
+  }
+
+  async function loadInferenceSample(name) {
+    if (!name) return;
+    try {
+      const response = await fetch(`/api/inference-sample?name=${encodeURIComponent(name)}`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "読み込みに失敗しました");
+      stopTransport();
+      resetSynthesisState();
+      clearInferenceAudio();
+      state.inference = data;
+      state.sourceText = data.source;
+      state.sourceName = name;
+      state.projectTracks = [{name, sourceName: name, sourceText: data.source, inference: data}];
+      state.activeTrackIndex = 0;
+      state.segment = 0;
+      state.editor.selectedNote = -1;
+      state.undoStack = [];
+      state.redoStack = [];
+      updatePredictButton();
+      renderInference();
+      renderProjectTracks();
+    } catch (error) { $("#detail").innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`; }
+  }
+
+  function parseUst(text, filename) {
+    const settings = {};
+    const notes = [];
+    const noteBySection = new Map();
+    let section = "";
+    let cursor = 0;
+    for (const rawLine of text.replace(/^\uFEFF/, "").split(/\r?\n/)) {
+      const line = rawLine.trim();
+      const header = /^\[#([^\]]+)\]$/.exec(line);
+      if (header) {
+        section = header[1].toUpperCase();
+        if (/^\d+$/.test(section) && !noteBySection.has(section)) {
+          const note = {section, startTicks: cursor, durationTicks: 0, midi: 60, lyric: "あ"};
+          noteBySection.set(section, note);
+          notes.push(note);
+        }
+        continue;
+      }
+      const split = line.indexOf("=");
+      if (split < 0) continue;
+      const key = line.slice(0, split).trim().toLowerCase();
+      const value = line.slice(split + 1).trim();
+      if (section === "SETTING") {
+        settings[key] = value;
+      } else if (section === "TRACKEND" || section === "END") {
+        break;
+      } else if (noteBySection.has(section)) {
+        const note = noteBySection.get(section);
+        if (key === "length") {
+          const length = Number(value);
+          if (Number.isFinite(length) && length > 0) {
+            note.durationTicks = length;
+            cursor = note.startTicks + length;
+          }
+        } else if (key === "notenum") {
+          note.midi = Number(value);
+        } else if (key === "lyric") {
+          note.lyric = value;
+        }
+      }
+    }
+    const bpm = Number(settings.tempo) || 120;
+    const validNotes = notes.filter((note) => note.durationTicks > 0 && Number.isFinite(note.midi));
+    if (!validNotes.length) throw new Error("USTに読み込めるノートがありません");
+    return [{name: filename.replace(/\.[^.]+$/, ""), notes: validNotes, bpm, resolution: 480, numerator: 4, denominator: 4}];
+  }
+
+  async function decodeProjectText(file) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (bytes[0] === 0xff && bytes[1] === 0xfe) return new TextDecoder("utf-16le").decode(bytes.subarray(2));
+    if (bytes[0] === 0xfe && bytes[1] === 0xff) return new TextDecoder("utf-16be").decode(bytes.subarray(2));
+    try {
+      return new TextDecoder("utf-8", {fatal: true}).decode(bytes);
+    } catch (error) {
+      if (file.name.toLowerCase().endsWith(".ust")) {
+        try { return new TextDecoder("shift_jis").decode(bytes); } catch { /* use the UTF-8 error below */ }
+      }
+      throw new Error(`${file.name}: 文字コードを読み取れません (${error.message})`);
+    }
+  }
+
+  function yamlScalar(value) {
+    const scalar = value.trim().replace(/,\s*$/, "");
+    if (scalar.startsWith('"') && scalar.endsWith('"')) {
+      try { return JSON.parse(scalar); } catch { return scalar.slice(1, -1); }
+    }
+    if (scalar.startsWith("'") && scalar.endsWith("'")) return scalar.slice(1, -1).replace(/''/g, "'");
+    return scalar;
+  }
+
+  function parseUstx(text, filename) {
+    const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/);
+    const bpm = Number(/^\s*bpm:\s*([\d.]+)/m.exec(text)?.[1]) || 120;
+    const resolution = Number(/^\s*resolution:\s*(\d+)/m.exec(text)?.[1]) || 480;
+    const numerator = Number(/^\s*beat_per_bar:\s*(\d+)/m.exec(text)?.[1]) || 4;
+    const denominator = Number(/^\s*beat_unit:\s*(\d+)/m.exec(text)?.[1]) || 4;
+    const tracks = [];
+    let currentTrack = null;
+    let notesIndent = -1;
+    let currentNote = null;
+    const finishNote = () => {
+      if (currentTrack && currentNote && Number.isFinite(currentNote.startTicks) && Number.isFinite(currentNote.durationTicks) && Number.isFinite(currentNote.midi)) {
+        currentTrack.notes.push({...currentNote, lyric: currentNote.lyric || "あ"});
+      }
+      currentNote = null;
+    };
+    for (const line of lines) {
+      const indent = line.length - line.trimStart().length;
+      const trimmed = line.trim();
+      if (/^-\s*track_no\s*:/.test(trimmed)) {
+        finishNote();
+        currentTrack = {name: `Track ${tracks.length + 1}`, notes: [], bpm, resolution, numerator, denominator};
+        tracks.push(currentTrack);
+        notesIndent = -1;
+        continue;
+      }
+      if (!currentTrack) continue;
+      if (/^track_name\s*:/.test(trimmed)) {
+        currentTrack.name = String(yamlScalar(trimmed.slice(trimmed.indexOf(":") + 1)));
+        continue;
+      }
+      if (/^notes\s*:\s*$/.test(trimmed)) {
+        finishNote();
+        notesIndent = indent;
+        continue;
+      }
+      if (notesIndent >= 0 && indent <= notesIndent && trimmed &&
+          !trimmed.startsWith("#") && !/^-\s*(?:position|pos)\s*:/.test(trimmed)) {
+        finishNote();
+        notesIndent = -1;
+      }
+      if (notesIndent < 0) continue;
+      if (/^-\s*(?:position|pos)\s*:/.test(trimmed)) {
+        finishNote();
+        currentNote = {};
+        const pair = /^-\s*([^:]+)\s*:\s*(.*)$/.exec(trimmed);
+        if (pair) {
+          currentNote[pair[1].trim()] = yamlScalar(pair[2]);
+          if (/^(position|pos)$/i.test(pair[1].trim())) currentNote.startTicks = Number(pair[2]);
+        }
+        continue;
+      }
+      if (!currentNote) continue;
+      const pair = /^([A-Za-z_][\w-]*)\s*:\s*(.*?)\s*$/.exec(trimmed);
+      if (!pair) continue;
+      currentNote[pair[1]] = yamlScalar(pair[2]);
+      if (pair[1] === "position" || pair[1] === "pos") currentNote.startTicks = Number(pair[2]);
+      if (pair[1] === "duration" || pair[1] === "dur") currentNote.durationTicks = Number(pair[2]);
+      if (pair[1] === "tone" || pair[1] === "pitch") currentNote.midi = Number(pair[2]);
+      if (pair[1] === "lyric") currentNote.lyric = String(yamlScalar(pair[2]));
+    }
+    finishNote();
+    const valid = tracks.filter((track) => track.notes.length);
+    if (!valid.length) throw new Error("USTXに読み込めるトラック/ノートがありません");
+    return valid.map((track) => ({...track, name: track.name || filename.replace(/\.[^.]+$/, "")}));
+  }
+
+  function parseMidi(bytes, filename) {
+    const view = new DataView(bytes);
+    let position = 0;
+    const readAscii = (length) => {
+      let result = "";
+      for (let index = 0; index < length; index++) result += String.fromCharCode(view.getUint8(position++));
+      return result;
+    };
+    const readUint32 = () => { const value = view.getUint32(position); position += 4; return value; };
+    const readUint16 = () => { const value = view.getUint16(position); position += 2; return value; };
+    const readVariable = (end) => {
+      let value = 0;
+      let byte;
+      do {
+        if (position >= end) throw new Error("MIDIのイベントデータが途中で終わっています");
+        byte = view.getUint8(position++);
+        value = (value << 7) | (byte & 0x7f);
+      } while (byte & 0x80);
+      return value;
+    };
+    if (readAscii(4) !== "MThd") throw new Error("MIDIヘッダーがありません");
+    const headerLength = readUint32();
+    if (headerLength < 6) throw new Error("MIDIヘッダーが不正です");
+    const format = readUint16();
+    const trackCount = readUint16();
+    const division = readUint16();
+    position += headerLength - 6;
+    if (division & 0x8000) throw new Error("SMPTEタイムベースMIDIは未対応です");
+    const resolution = division || 480;
+    let bpm = 120;
+    let numerator = 4;
+    let denominator = 4;
+    const tempoChanges = [];
+    let order = 0;
+    const tracks = [];
+    for (let trackIndex = 0; trackIndex < trackCount; trackIndex++) {
+      if (readAscii(4) !== "MTrk") throw new Error("MIDIトラックチャンクが不正です");
+      const end = position + readUint32();
+      let tick = 0;
+      let runningStatus = 0;
+      let name = `Track ${trackIndex + 1}`;
+      const events = [];
+      const active = new Map();
+      const lyrics = [];
+      while (position < end) {
+        tick += readVariable(end);
+        let status = view.getUint8(position);
+        if (status & 0x80) {
+          position++;
+          runningStatus = status;
+        } else {
+          status = runningStatus;
+        }
+        if (status === 0xff) {
+          const type = view.getUint8(position++);
+          const length = readVariable(end);
+          if (position + length > end) throw new Error("MIDIメタイベントが不正です");
+          if (type === 0x03) name = new TextDecoder().decode(new Uint8Array(bytes, position, length)) || name;
+          if (type === 0x05) lyrics.push({tick, lyric: new TextDecoder().decode(new Uint8Array(bytes, position, length))});
+          if (type === 0x51 && length === 3) {
+            const micros = (view.getUint8(position) << 16) | (view.getUint8(position + 1) << 8) | view.getUint8(position + 2);
+            if (micros > 0) {
+              tempoChanges.push({tick, micros, order: order++});
+              if (tick === 0 && tempoChanges.length === 1) bpm = 60_000_000 / micros;
+            }
+          }
+          if (type === 0x58 && length >= 2 && tick === 0) {
+            numerator = view.getUint8(position);
+            denominator = 2 ** view.getUint8(position + 1);
+          }
+          position += length;
+          if (type === 0x2f) break;
+          continue;
+        }
+        if (status === 0xf0 || status === 0xf7) {
+          position += readVariable(end);
+          continue;
+        }
+        const command = status & 0xf0;
+        const channel = status & 0x0f;
+        if (command === 0xc0 || command === 0xd0) {
+          position++;
+          continue;
+        }
+        if (position + 2 > end) throw new Error("MIDIノートイベントが途中で終わっています");
+        const pitch = view.getUint8(position++);
+        const velocity = view.getUint8(position++);
+        const key = `${channel}:${pitch}`;
+        if (command === 0x90 && velocity > 0) {
+          const pending = active.get(key) || [];
+          pending.push({startTicks: tick, midi: pitch, velocity});
+          active.set(key, pending);
+        } else if (command === 0x80 || (command === 0x90 && velocity === 0)) {
+          const pending = active.get(key);
+          if (pending?.length) {
+            const note = pending.shift();
+            if (tick > note.startTicks) events.push({...note, durationTicks: tick - note.startTicks});
+          }
+        }
+      }
+      for (const pending of active.values()) {
+        for (const note of pending) events.push({...note, durationTicks: resolution});
+      }
+      events.sort((left, right) => left.startTicks - right.startTicks || right.midi - left.midi);
+      if (events.length) {
+        for (const note of events) {
+          const lyric = lyrics.find((item) => item.tick === note.startTicks)?.lyric;
+          note.lyric = lyric || "あ";
+        }
+        tracks.push({name, notes: events, bpm, resolution, numerator, denominator, format});
+      }
+      position = end;
+    }
+    if (!tracks.length) throw new Error("MIDIに歌声として読み込めるノートがありません");
+    tempoChanges.sort((left, right) => left.tick - right.tick || left.order - right.order);
+    if (!tempoChanges.length || tempoChanges[0].tick > 0) {
+      tempoChanges.unshift({tick: 0, micros: 60_000_000 / bpm, order: -1});
+    }
+    const tickToSeconds = (targetTick) => {
+      let elapsed = 0;
+      let previousTick = 0;
+      let micros = tempoChanges[0].micros;
+      for (const change of tempoChanges) {
+        if (change.tick >= targetTick) break;
+        if (change.tick > previousTick) elapsed += (change.tick - previousTick) * micros / 1_000_000 / resolution;
+        previousTick = change.tick;
+        micros = change.micros;
+      }
+      return elapsed + (targetTick - previousTick) * micros / 1_000_000 / resolution;
+    };
+    for (const track of tracks) {
+      for (const note of track.notes) {
+        note.startSeconds = tickToSeconds(note.startTicks);
+        note.durationSeconds = tickToSeconds(note.startTicks + note.durationTicks) - note.startSeconds;
+      }
+    }
+    return tracks;
+  }
+
+  function xmlChildren(node, name) {
+    return Array.from(node.getElementsByTagName("*")).filter((item) => item.localName === name);
+  }
+
+  function xmlValue(node, name, fallback = "") {
+    return xmlChildren(node, name)[0]?.textContent?.trim() || fallback;
+  }
+
+  function parseVsqx(text, filename) {
+    const documentXml = new DOMParser().parseFromString(text, "application/xml");
+    if (documentXml.querySelector("parsererror")) throw new Error("VSQX XMLを解析できません");
+    const resolution = Number(xmlValue(documentXml, "resolution", "480")) || 480;
+    const bpmNode = xmlChildren(documentXml, "tempo")[0];
+    const rawBpm = Number(xmlValue(bpmNode || documentXml, "bpm", "120")) || 120;
+    const bpm = rawBpm > 1000 ? rawBpm / 100 : rawBpm;
+    const numerator = Number(xmlValue(xmlChildren(documentXml, "timeSig")[0] || documentXml, "nume", "4")) || 4;
+    const denominator = Number(xmlValue(xmlChildren(documentXml, "timeSig")[0] || documentXml, "denomi", "4")) || 4;
+    const trackNodes = xmlChildren(documentXml, "vsTrack");
+    const tracks = [];
+    for (let index = 0; index < trackNodes.length; index++) {
+      const trackNode = trackNodes[index];
+      const trackName = xmlValue(trackNode, "name", `Track ${index + 1}`);
+      const notes = xmlChildren(trackNode, "note").flatMap((node) => {
+        const startTicks = Number(xmlValue(node, "posTick", ""));
+        const durationTicks = Number(xmlValue(node, "durTick", ""));
+        const midi = Number(xmlValue(node, "noteNum", ""));
+        if (![startTicks, durationTicks, midi].every(Number.isFinite) || durationTicks <= 0) return [];
+        return [{startTicks, durationTicks, midi, lyric: xmlValue(node, "lyric", "あ")}];
+      }).sort((left, right) => left.startTicks - right.startTicks);
+      if (notes.length) tracks.push({name: trackName, notes, bpm, resolution, numerator, denominator});
+    }
+    if (!tracks.length) throw new Error(`${filename}: VSQXに歌声ノートがありません`);
+    return tracks;
+  }
+
+  async function unzipProject(bytes) {
+    const view = new DataView(bytes);
+    const read32 = (offset) => view.getUint32(offset, true);
+    const read16 = (offset) => view.getUint16(offset, true);
+    let eocd = -1;
+    const searchStart = Math.max(0, bytes.byteLength - 65_557);
+    for (let offset = bytes.byteLength - 22; offset >= searchStart; offset--) {
+      if (read32(offset) === 0x06054b50) { eocd = offset; break; }
+    }
+    if (eocd < 0) throw new Error("OpenUtau .oupのZIPディレクトリが見つかりません");
+    const count = read16(eocd + 10);
+    let cursor = read32(eocd + 16);
+    for (let index = 0; index < count; index++) {
+      if (read32(cursor) !== 0x02014b50) throw new Error("OpenUtau .oupのZIPエントリが不正です");
+      const method = read16(cursor + 10);
+      const compressedSize = read32(cursor + 20);
+      const nameLength = read16(cursor + 28);
+      const extraLength = read16(cursor + 30);
+      const commentLength = read16(cursor + 32);
+      const localOffset = read32(cursor + 42);
+      const name = new TextDecoder().decode(new Uint8Array(bytes, cursor + 46, nameLength));
+      if (/\.(ustx|vsqx|ds|json)$/i.test(name)) {
+        const localNameLength = read16(localOffset + 26);
+        const localExtraLength = read16(localOffset + 28);
+        const dataStart = localOffset + 30 + localNameLength + localExtraLength;
+        const compressed = new Uint8Array(bytes, dataStart, compressedSize);
+        let contentBytes;
+        if (method === 0) contentBytes = compressed.slice();
+        else if (method === 8 && typeof DecompressionStream !== "undefined") {
+          const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+          contentBytes = new Uint8Array(await new Response(stream).arrayBuffer());
+        } else {
+          throw new Error(`.oup内の圧縮形式に対応していません: ${name}`);
+        }
+        return {name, content: new TextDecoder().decode(contentBytes), bytes: contentBytes.buffer};
+      }
+      cursor += 46 + nameLength + extraLength + commentLength;
+    }
+    throw new Error("OpenUtau .oup内にUSTX/VSQX/DSトラックがありません");
+  }
+
+  const kanaMora = {
+    あ:"a",い:"i",う:"u",え:"e",お:"o",か:"k a",き:"k i",く:"k u",け:"k e",こ:"k o",
+    さ:"s a",し:"sh i",す:"s u",せ:"s e",そ:"s o",た:"t a",ち:"ch i",つ:"ts u",て:"t e",と:"t o",
+    な:"n a",に:"n i",ぬ:"n u",ね:"n e",の:"n o",は:"h a",ひ:"h i",ふ:"f u",へ:"h e",ほ:"h o",
+    ま:"m a",み:"m i",む:"m u",め:"m e",も:"m o",や:"y a",ゆ:"y u",よ:"y o",
+    ら:"r a",り:"r i",る:"r u",れ:"r e",ろ:"r o",わ:"w a",を:"o",ん:"N",
+    が:"g a",ぎ:"g i",ぐ:"g u",げ:"g e",ご:"g o",ざ:"z a",じ:"j i",ず:"z u",ぜ:"z e",ぞ:"z o",
+    だ:"d a",ぢ:"j i",づ:"z u",で:"d e",ど:"d o",ば:"b a",び:"b i",ぶ:"b u",べ:"b e",ぼ:"b o",
+    ぱ:"p a",ぴ:"p i",ぷ:"p u",ぺ:"p e",ぽ:"p o",ぁ:"a",ぃ:"i",ぅ:"u",ぇ:"e",ぉ:"o",っ:"q",
+    きゃ:"k y a",きゅ:"k y u",きょ:"k y o",しゃ:"sh a",しゅ:"sh u",しょ:"sh o",
+    ちゃ:"ch a",ちゅ:"ch u",ちょ:"ch o",にゃ:"n y a",にゅ:"n y u",にょ:"n y o",
+    ひゃ:"h y a",ひゅ:"h y u",ひょ:"h y o",みゃ:"m y a",みゅ:"m y u",みょ:"m y o",
+    りゃ:"r y a",りゅ:"r y u",りょ:"r y o",ぎゃ:"g y a",ぎゅ:"g y u",ぎょ:"g y o",
+    じゃ:"j a",じゅ:"j u",じょ:"j o",びゃ:"b y a",びゅ:"b y u",びょ:"b y o",
+    ぴゃ:"p y a",ぴゅ:"p y u",ぴょ:"p y o",ゔ:"v u",
+  };
+  const romajiMora = {a:"a",i:"i",u:"u",e:"e",o:"o",ka:"k a",ki:"k i",ku:"k u",ke:"k e",ko:"k o",
+    sa:"s a",shi:"sh i",si:"sh i",su:"s u",se:"s e",so:"s o",ta:"t a",chi:"ch i",ti:"ch i",
+    tsu:"ts u",tu:"ts u",te:"t e",to:"t o",na:"n a",ni:"n i",nu:"n u",ne:"n e",no:"n o",
+    ha:"h a",hi:"h i",fu:"f u",hu:"f u",he:"h e",ho:"h o",ma:"m a",mi:"m i",mu:"m u",
+    me:"m e",mo:"m o",ya:"y a",yu:"y u",yo:"y o",ra:"r a",ri:"r i",ru:"r u",re:"r e",ro:"r o",
+    wa:"w a",wo:"o",n:"N",ga:"g a",gi:"g i",gu:"g u",ge:"g e",go:"g o",za:"z a",ji:"j i",
+    ja:"j a",ju:"j u",jo:"j o",da:"d a",de:"d e",do:"d o",ba:"b a",bi:"b i",bu:"b u",
+    be:"b e",bo:"b o",pa:"p a",pi:"p i",pu:"p u",pe:"p e",po:"p o","-":"SP",r:"SP",sil:"SP",sp:"SP"};
+
+  function lyricToPhones(lyric) {
+    const normalized = Array.from(String(lyric || "").trim().normalize("NFC"), (character) => {
+      const codePoint = character.codePointAt(0);
+      return codePoint >= 0x30a1 && codePoint <= 0x30f6
+        ? String.fromCodePoint(codePoint - 0x60)
+        : character;
+    }).join("");
+    if (!normalized || /^(r|rest|sil|sp)$/i.test(normalized)) return ["SP"];
+    const romaji = normalized.toLowerCase().replace(/[^a-z]/g, "");
+    if (romajiMora[romaji]) return romajiMora[romaji].split(" ");
+    const chars = Array.from(normalized);
+    const phones = [];
+    for (let index = 0; index < chars.length;) {
+      const pair = chars.slice(index, index + 2).join("");
+      const mora = kanaMora[pair] ? pair : chars[index];
+      if (kanaMora[mora]) phones.push(...kanaMora[mora].split(" "));
+      else if (/^[a-z]$/i.test(mora) && romajiMora[mora.toLowerCase()]) phones.push(...romajiMora[mora.toLowerCase()].split(" "));
+      else if (mora === "ー" && phones.length) phones.push(phones[phones.length - 1]);
+      else if (!/[\s,，、.。!?！？]/.test(mora)) return null;
+      index += mora.length;
+    }
+    return phones.length ? phones : null;
+  }
+
+  function makeDsTrack(projectTrack, index) {
+    const bpm = Math.max(20, Number(projectTrack.bpm) || 120);
+    const resolution = Math.max(1, Number(projectTrack.resolution) || 480);
+    const rawEvents = [...projectTrack.notes].filter((note) =>
+      Number.isFinite(Number(note.startTicks)) && Number(note.startTicks) >= 0 &&
+      Number.isFinite(Number(note.durationTicks)) && Number(note.durationTicks) > 0 &&
+      Number.isFinite(Number(note.midi)),
+    ).sort((left, right) => Number(left.startTicks) - Number(right.startTicks) || Number(left.midi) - Number(right.midi));
+    if (!rawEvents.length) throw new Error(`${projectTrack.name}: 歌声ノートがありません`);
+    const secondsPerTick = 60 / bpm / resolution;
+    const startTime = (note) => Number.isFinite(note.startSeconds) ? note.startSeconds : Number(note.startTicks) * secondsPerTick;
+    const durationTime = (note) => Number.isFinite(note.durationSeconds) ? note.durationSeconds : Number(note.durationTicks) * secondsPerTick;
+    const events = [];
+    let polyphonyAdjusted = false;
+    for (const note of rawEvents) {
+      const previous = events.at(-1);
+      if (previous && startTime(note) < startTime(previous) + durationTime(previous)) {
+        polyphonyAdjusted = true;
+        const shortenedDuration = startTime(note) - startTime(previous);
+        if (shortenedDuration <= 0) {
+          events.pop();
+        } else if (Number.isFinite(previous.durationSeconds)) {
+          previous.durationSeconds = shortenedDuration;
+        } else {
+          previous.durationTicks = shortenedDuration / secondsPerTick;
+        }
+      }
+      events.push({...note});
+    }
+    const firstTime = startTime(events[0]);
+    const endTime = Math.max(...events.map((note) => startTime(note) + durationTime(note)));
+    const noteSeq = [];
+    const noteDurations = [];
+    const phonemes = [];
+    const phoneDurations = [];
+    const notePhoneDurations = [];
+    const slurFlags = [];
+    const texts = [];
+    let cursor = firstTime;
+    const addNote = (lyric, midi, duration) => {
+      if (duration <= 0) return;
+      const phones = lyricToPhones(lyric);
+      if (!phones) {
+        throw new Error(`${projectTrack.name}:「${lyric}」の音素変換に失敗しました。読みをひらがな/ローマ字で指定してください`);
+      }
+      const pitchName = lyric === "R" || lyric.toLowerCase() === "rest" || phones[0] === "SP"
+        ? "rest" : midiToNote(midi);
+      noteSeq.push(pitchName);
+      noteDurations.push(duration);
+      texts.push(lyric);
+      const consonants = Math.max(0, phones.length - 1);
+      const consonantDuration = Math.min(duration * 0.25, 0.08);
+      const vowelDuration = Math.max(0.001, duration - consonantDuration * consonants);
+      const split = phones.map((_, phoneIndex) =>
+        phoneIndex < consonants ? consonantDuration : vowelDuration);
+      const splitTotal = split.reduce((sum, value) => sum + value, 0);
+      const normalized = split.map((value) => value * duration / splitTotal);
+      phones.forEach((phone, phoneIndex) => {
+        phonemes.push(phone);
+        phoneDurations.push(normalized[phoneIndex]);
+        notePhoneDurations.push(normalized[phoneIndex]);
+        slurFlags.push("0");
+      });
+    };
+    for (const note of events) {
+      const start = startTime(note);
+      if (start > cursor) addNote("R", 60, start - cursor);
+      addNote(note.lyric || "あ", Number(note.midi), durationTime(note));
+      cursor = Math.max(cursor, start + durationTime(note));
+    }
+    const totalDuration = endTime - firstTime;
+    const timestep = 512 / 44_100;
+    const frameCount = Math.max(1, Math.ceil(totalDuration / timestep));
+    const f0 = [];
+    let activeIndex = 0;
+    for (let frame = 0; frame < frameCount; frame++) {
+      const elapsedSeconds = frame * timestep + firstTime;
+      while (activeIndex < events.length &&
+          elapsedSeconds >= startTime(events[activeIndex]) + durationTime(events[activeIndex])) {
+        activeIndex++;
+      }
+      const candidate = events[activeIndex];
+      const active = candidate && elapsedSeconds >= startTime(candidate) ? candidate : null;
+      const phonesForLyric = active ? lyricToPhones(active.lyric || "あ") : ["SP"];
+      const isRest = !active || !phonesForLyric || phonesForLyric[0] === "SP";
+      f0.push(isRest ? 0 : 440 * 2 ** ((Number(active.midi) - 69) / 12));
+    }
+    const segment = {
+      offset: firstTime,
+      text: texts.join(" "),
+      lang: "ja",
+      ph_seq: phonemes.join(" "),
+      ph_dur: phoneDurations.map((value) => value.toFixed(6)).join(" "),
+      ph_num: String(noteSeq.length),
+      note_seq: noteSeq.join(" "),
+      note_dur: noteDurations.map((value) => value.toFixed(6)).join(" "),
+      note_dur_seq: notePhoneDurations.map((value) => value.toFixed(6)).join(" "),
+      note_glide: noteSeq.map(() => "none").join(" "),
+      note_slur: noteSeq.map(() => "0").join(" "),
+      is_slur_seq: slurFlags.join(" "),
+      f0_seq: f0.map((value) => value.toFixed(2)).join(" "),
+      f0_timestep: timestep,
+      gender: f0.map(() => "0.000").join(" "),
+      gender_timestep: timestep,
+      input_type: "midi",
+    };
+    return {
+      name: projectTrack.name || `Track ${index + 1}`,
+      sourceName: `${(projectTrack.name || `track-${index + 1}`).replace(/[\\/:*?"<>|]/g, "_")}.ds`,
+      sourceText: JSON.stringify([segment], null, 2),
+      mixOffset: Number(projectTrack.mixOffset) || 0,
+      gain: Number(projectTrack.gain ?? 1),
+      importWarnings: polyphonyAdjusted
+        ? ["重なる音符を単旋律に変換しました（同時発音は高い音、重なりは後続音を優先）。"]
+        : [],
+    };
+  }
+
+  async function parseExternalFile(file) {
+    const extension = file.name.split(".").at(-1).toLowerCase();
+    let data;
+    if (extension === "oup") {
+      const archive = await unzipProject(await file.arrayBuffer());
+      const innerFile = new File([archive.bytes], archive.name.split("/").at(-1), {type: "text/plain"});
+      return parseExternalFile(innerFile);
+    }
+    if (extension === "ust") {
+      data = parseUst(await decodeProjectText(file), file.name);
+    } else if (extension === "ustx") {
+      data = parseUstx(await decodeProjectText(file), file.name);
+    } else if (extension === "mid" || extension === "midi") {
+      data = parseMidi(await file.arrayBuffer(), file.name);
+    } else if (extension === "vsqx") {
+      data = parseVsqx(await decodeProjectText(file), file.name);
+    } else {
+      throw new Error(`未対応のプロジェクト形式です: .${extension}`);
+    }
+    return {
+      tracks: await Promise.all(data.map(async (track, index) => {
+        const converted = makeDsTrack(track, index);
+        const parsed = await parseTrackSource(converted.sourceName, converted.sourceText);
+        return {...converted, inference: parsed.inference};
+      })),
+      tempo: data[0]?.bpm || 120,
+      numerator: data[0]?.numerator || 4,
+      denominator: data[0]?.denominator || 4,
+      warnings: [],
+    };
+  }
+
+  async function parseTrackSource(name, sourceText) {
+    const response = await fetch("/api/inference", {
+      method: "POST",
+      headers: {"X-Filename": name},
+      body: sourceText,
+    });
+    const inference = await response.json();
+    if (!response.ok) throw new Error(inference.error || `${name}を読み込めません`);
+    return {name: name.replace(/\.[^.]+$/, ""), sourceName: name, sourceText, inference};
+  }
+
+  async function importEditorFiles(files) {
+    if (!files.length) return;
+    const appendTracks = state.addingTracks;
+    state.addingTracks = false;
+    const projectFiles = files.filter((file) => [".dsproj", ".oup"].includes(file.name.slice(file.name.lastIndexOf(".")).toLowerCase()));
+    if (projectFiles.length && files.length !== 1) {
+      throw new Error(".dsprojは他のファイルと同時に開けません");
+    }
+    if (projectFiles.length) {
+      if (appendTracks) throw new Error("プロジェクトファイルはトラック追加ではなく、新規プロジェクトとして開いてください");
+      if (projectFiles[0].name.toLowerCase().endsWith(".oup")) {
+        const imported = await parseExternalFile(projectFiles[0]);
+        applyProjectSettings({tempo: imported.tempo, time_signature: [imported.numerator, imported.denominator]});
+        clearBgmData();
+        setProjectTracks(imported.tracks);
+        $("#record-list").querySelectorAll(".record-button").forEach((button) => button.classList.remove("active"));
+        renderInference();
+        renderProjectTracks();
+        const warnings = imported.tracks.flatMap((track) => track.importWarnings || []);
+        if (warnings.length) $("#synthesis-help").textContent = warnings.join(" ");
+        return;
+      }
+      const project = JSON.parse(await projectFiles[0].text());
+      if (project.format !== "diffsinger-web-editor" || project.version !== 1 || !Array.isArray(project.tracks)) {
+        throw new Error("未対応または不正なWeb Editorプロジェクトです");
+      }
+      const tracks = await Promise.all(project.tracks.map((track) => {
+        if (typeof track.source_text !== "string" || !track.source_text) {
+          throw new Error("プロジェクトにDSトラックデータがありません");
+        }
+        return parseTrackSource(track.source_name || `${track.name || "track"}.ds`, track.source_text)
+          .then((parsed) => ({
+            ...parsed,
+            name: String(track.name || parsed.name),
+            mixOffset: Number(track.mix_offset) || 0,
+            gain: Number(track.gain ?? 1),
+          }));
+      }));
+      applyProjectSettings(project);
+      clearBgmData();
+      if (project.bgm?.data_base64) {
+        await setBgmData(
+          project.bgm.name || "BGM",
+          base64ToArrayBuffer(project.bgm.data_base64),
+          project.bgm.mime_type || "audio/wav",
+          project.bgm.offset,
+          project.bgm.gain,
+        );
+      }
+      setProjectTracks(tracks);
+    } else if (files.some((file) => file.name.toLowerCase().endsWith(".lab"))) {
+      if (appendTracks) throw new Error(".labファイルはトラックとして追加できません");
+      if (files.length !== 1) throw new Error(".lab表示とDS複数トラックの同時読み込みには対応していません");
+      const file = files[0];
+      const sourceText = await file.text();
+      const response = await fetch("/api/inference", {
+        method: "POST",
+        headers: {"X-Filename": file.name},
+        body: sourceText,
+      });
+      const inference = await response.json();
+      if (!response.ok) throw new Error(inference.error || "ファイルを読み込めません");
+      stopTransport();
+      resetSynthesisState();
+      clearInferenceAudio();
+      state.projectTracks = [];
+      state.sourceName = file.name;
+      state.sourceText = sourceText;
+      state.inference = inference;
+      state.active = -1;
+      updatePredictButton();
+      renderProjectTracks();
+    } else {
+      const tracks = [];
+      let projectSettings = null;
+      for (const file of files) {
+        const extension = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+        if ([".ds", ".json"].includes(extension)) {
+          tracks.push(await parseTrackSource(file.name, await decodeProjectText(file)));
+        } else {
+          const imported = await parseExternalFile(file);
+          tracks.push(...imported.tracks);
+          if (!projectSettings) projectSettings = {
+            tempo: imported.tempo,
+            time_signature: [imported.numerator, imported.denominator],
+          };
+        }
+      }
+      if (!appendTracks || !state.projectTracks.length) {
+        applyProjectSettings(projectSettings || {tempo: 120, time_signature: [4, 4]});
+      }
+      if (appendTracks && state.projectTracks.length) {
+        syncActiveTrack();
+        const newTrackIndex = state.projectTracks.length;
+        setProjectTracks([...state.projectTracks, ...tracks]);
+        state.activeTrackIndex = newTrackIndex;
+        state.sourceName = state.projectTracks[newTrackIndex].sourceName;
+        state.sourceText = state.projectTracks[newTrackIndex].sourceText;
+        state.inference = state.projectTracks[newTrackIndex].inference;
+        state.segment = 0;
+        updatePredictButton();
+      } else {
+        clearBgmData();
+        setProjectTracks(tracks);
+      }
+    }
+    $("#record-list").querySelectorAll(".record-button").forEach((button) => button.classList.remove("active"));
+    if (state.inference) renderInference();
+    renderProjectTracks();
+    const warnings = state.projectTracks.flatMap((track) => track.importWarnings || []);
+    if (warnings.length) $("#synthesis-help").textContent = warnings.join(" ");
+  }
+
+  function updatePredictButton() {
+    const button = $("#predict-duration");
+    if (!button) return;
+    const unsupported = unsupportedPhones();
+    button.disabled = !state.sourceText || !/\.(ds|json)$/i.test(state.sourceName) || !state.models.length || unsupported.length > 0;
+    const status = $("#inference-status");
+    if (status && unsupported.length) status.textContent = `未学習の音素があります: ${unsupported.join(" ")}`;
+    else if (status && untrainedPhones().length) status.textContent = `教師例のない音素を含みます: ${untrainedPhones().join(" ")}`;
+    updateSynthesisButton();
+  }
+
+  function canSynthesizeInput() {
+    if (!state.sourceText || !/\.(ds|json)$/i.test(state.sourceName)) return false;
+    try {
+      const data = JSON.parse(state.sourceText);
+      const segments = Array.isArray(data) ? data : (data.segments || [data]);
+      return segments.length > 0 && segments.every((segment) =>
+        segment.ph_seq && segment.ph_dur && segment.f0_seq && segment.f0_timestep);
+    } catch { return false; }
+  }
+
+  function updateSynthesisButton() {
+    const button = $("#synthesize");
+    const allButton = $("#synthesize-all");
+    const select = $("#acoustic-model-select");
+    const help = $("#synthesis-help");
+    if (!button || !allButton || !select || !help) return;
+    const model = state.synthesisModels.find((item) => item.experiment === select.value);
+    const speakerLabel = $("#speaker-label");
+    const speakerSelect = $("#speaker-select");
+    const selectedSpeaker = speakerSelect.value;
+    const speakers = model?.speakers || [];
+    speakerSelect.innerHTML = `<option value="">DSの指定を使う</option>${speakers.map((speaker) => `<option value="${escapeHtml(speaker)}">${escapeHtml(speaker)}</option>`).join("")}`;
+    if (speakers.includes(selectedSpeaker)) speakerSelect.value = selectedSpeaker;
+    speakerLabel.classList.toggle("hidden", !model?.speakers?.length);
+    speakerSelect.classList.toggle("hidden", !model?.speakers?.length);
+    const needsSpeaker = model?.requires_speaker && speakers.length > 1;
+    const dsHasSpeakerMix = (() => {
+      try {
+        const data = JSON.parse(state.sourceText);
+        const segments = Array.isArray(data) ? data : (data.segments || [data]);
+        return segments.every((segment) => segment.spk_mix && Object.keys(segment.spk_mix).length);
+      } catch { return false; }
+    })();
+    const speakerMissing = needsSpeaker && !speakerSelect.value && !dsHasSpeakerMix;
+    button.disabled = !model || !canSynthesizeInput() || speakerMissing;
+    allButton.disabled = !model || !state.projectTracks.length ||
+      state.projectTracks.some((track) => !track.sourceText || !/\.(ds|json)$/i.test(track.sourceName)) ||
+      speakerMissing;
+    if (!state.synthesisModels.length) {
+      help.textContent = "音声合成には音響checkpointとvocoderが必要です。DiffSinger/checkpointsに配置してください。";
+    } else if (!state.sourceText || !/\.(ds|json)$/i.test(state.sourceName)) {
+      help.textContent = "合成する .ds / .json を読み込んでください。";
+    } else if (!canSynthesizeInput()) {
+      help.textContent = "ph_dur・f0_seq・f0_timestepが必要です。duration未指定なら先にDurationを予測してください。";
+    } else if (speakerMissing) {
+      help.textContent = "複数歌手モデルです。歌声を選択するか、.dsにspk_mixを指定してください。";
+    } else {
+      help.textContent = "表示中のDS音素とノート、音高を使ってWAVを生成します。";
+    }
+  }
+
+  function setInferenceAudio(url, generated = false) {
+    if (transportAudio) stopTransport();
+    if (state.audioUrl.startsWith("blob:")) URL.revokeObjectURL(state.audioUrl);
+    state.audioUrl = url;
+    state.generatedAudio = generated;
+    if (state.inference?.segments?.[state.segment || 0] && $("#arrangement-wave")) {
+      drawArrangement();
+    }
+  }
+
+  function clearInferenceAudio() {
+    stopTransport();
+    setInferenceAudio("");
+  }
+
+  function resetSynthesisState() {
+    if (state.synthesisJobId) {
+      fetch(`/api/synthesis-cancel?job=${encodeURIComponent(state.synthesisJobId)}`, {method: "POST"})
+        .then((response) => {
+          if (!response.ok) console.error("Could not cancel synthesis job");
+        })
+        .catch((error) => console.error("Could not cancel synthesis job:", error));
+    }
+    state.synthesisJobId = "";
+    state.synthesisRunning = false;
+    state.synthesisLogs = [];
+    state.synthesisTotal = 0;
+    state.synthesisCompleted = 0;
+  }
+
+  function drawLiveSpectrum() {
+    const playback = state.livePlayback;
+    if (!playback) return;
+    const canvas = $("#live-spectrogram");
+    if (!canvas) {
+      playback.frame = requestAnimationFrame(drawLiveSpectrum);
+      return;
+    }
+    const width = canvas.clientWidth || 500;
+    const height = canvas.clientHeight || 140;
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    const context = canvas.getContext("2d");
+    const bins = playback.analyser.frequencyBinCount;
+    const frequencies = new Uint8Array(bins);
+    playback.analyser.getByteFrequencyData(frequencies);
+    context.drawImage(canvas, 1, 0, width - 1, height, 0, 0, width - 1, height);
+    const maxBin = Math.min(bins - 1, Math.floor(8000 * playback.audioContext.sampleRate / playback.analyser.fftSize));
+    for (let y = 0; y < height; y++) {
+      const bin = Math.min(maxBin, Math.max(1, Math.round((1 - y / height) * maxBin)));
+      const level = frequencies[bin] / 255;
+      context.fillStyle = `rgb(${Math.round(18 + 237 * level)},${Math.round(44 + 167 * Math.sin(level * Math.PI / 2))},${Math.round(51 + 95 * (1 - level))})`;
+      context.fillRect(width - 1, y, 1, 1);
+    }
+    playback.frame = requestAnimationFrame(drawLiveSpectrum);
+  }
+
+  async function prepareLivePlayback() {
+    if (state.livePlayback) {
+      cancelAnimationFrame(state.livePlayback.frame);
+      await state.livePlayback.audioContext.close();
+    }
+    const audioContext = new AudioContext();
+    await audioContext.resume();
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.25;
+    analyser.connect(audioContext.destination);
+    state.livePlayback = {
+      audioContext,
+      analyser,
+      baseTime: 0,
+      firstOffset: 0,
+      nextTime: 0,
+      sources: new Set(),
+      stopped: false,
+      frame: requestAnimationFrame(drawLiveSpectrum),
+    };
+  }
+
+  async function queueLiveSegment(blob, segment) {
+    const playback = state.livePlayback;
+    if (!playback || playback.stopped) return;
+    const audioBuffer = await playback.audioContext.decodeAudioData(await blob.arrayBuffer());
+    if (playback.stopped || state.livePlayback !== playback) return;
+    const source = playback.audioContext.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(playback.analyser);
+    playback.sources.add(source);
+    source.addEventListener("ended", () => playback.sources.delete(source), {once: true});
+    const offset = Number(segment.offset) || 0;
+    if (!playback.baseTime) {
+      playback.baseTime = playback.audioContext.currentTime + 0.05;
+      playback.firstOffset = offset;
+    }
+    const startTime = Math.max(
+      playback.audioContext.currentTime + 0.03,
+      playback.nextTime,
+      playback.baseTime + Math.max(0, offset - playback.firstOffset),
+    );
+    playback.nextTime = startTime + audioBuffer.duration;
+    source.start(startTime);
+  }
+
+  function updateSynthesisMonitor() {
+    const log = $("#synthesis-log");
+    const progress = $("#synthesis-progress");
+    const label = $("#synthesis-progress-label");
+    if (log) {
+      log.textContent = state.synthesisLogs.join("\n");
+      log.scrollTop = log.scrollHeight;
+    }
+    if (progress) {
+      progress.max = state.synthesisTotal || 1;
+      progress.value = state.synthesisCompleted;
+    }
+    if (label) label.textContent = state.synthesisRunning ? "処理中" : "完了";
+  }
+
+  function unsupportedPhones() {
+    const model = state.models.find((item) => item.experiment === $("#model-select").value);
+    if (!model || !state.inference) return [];
+    const supported = new Set(model.phonemes || []);
+    return [...new Set(state.inference.segments.flatMap((segment) => segment.phonemes.map((phone) => phone.phoneme))) ]
+      .filter((phone) => !supported.has(phone));
+  }
+
+  function untrainedPhones() {
+    const model = state.models.find((item) => item.experiment === $("#model-select").value);
+    if (!model || !state.inference) return [];
+    const untrained = new Set(model.untrained_phonemes || []);
+    return [...new Set(state.inference.segments.flatMap((segment) => segment.phonemes.map((phone) => phone.phoneme))) ]
+      .filter((phone) => untrained.has(phone));
+  }
+
+  async function runDurationPrediction() {
+    const button = $("#predict-duration");
+    const status = $("#inference-status");
+    if (!state.sourceText || !state.models.length) return;
+    button.disabled = true;
+    button.textContent = "推論中...";
+    if (status) status.textContent = "学習済みモデルでDurationを計算しています";
+    try {
+      const response = await fetch("/api/predict-duration", {
+        method: "POST",
+        headers: {
+          "X-Filename": state.sourceName,
+          "X-Model": $("#model-select").value,
+        },
+        body: state.sourceText,
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "推論に失敗しました");
+      clearInferenceAudio();
+      state.inference = data;
+      state.sourceText = data.source;
+      syncActiveTrack();
+      renderInference();
+      if (status) {
+        const checkpoint = data.checkpoint == null ? "事前学習済み" : `step ${data.checkpoint}`;
+        status.textContent = `${data.model} / ${checkpoint} · 句頭補正 ${data.calibrated_leading_count}件`;
+      }
+    } catch (error) {
+      if (status) status.textContent = error.message;
+    } finally {
+      button.textContent = "Durationを予測";
+      updatePredictButton();
+    }
+  }
+
+  async function mixAudioBlobs(items) {
+    const decoder = new AudioContext({sampleRate: 44_100});
+    try {
+      const decoded = [];
+      for (const item of items) {
+        const buffer = await decoder.decodeAudioData(await item.blob.arrayBuffer());
+        decoded.push({...item, buffer});
+      }
+      if (!decoded.length) throw new Error("ミックスする音声がありません");
+      const sampleRate = decoder.sampleRate;
+      const duration = Math.max(...decoded.map((item) =>
+        Math.max(0, Number(item.offset) || 0) + item.buffer.duration));
+      const frameCount = Math.ceil(duration * sampleRate);
+      const left = new Float32Array(frameCount);
+      const right = new Float32Array(frameCount);
+      for (const item of decoded) {
+        const start = Math.round(Math.max(0, Number(item.offset) || 0) * sampleRate);
+        const gain = Math.max(0, Number(item.gain) || 0);
+        const source = item.buffer;
+        const channels = Array.from({length: source.numberOfChannels}, (_, channel) => source.getChannelData(channel));
+        const length = Math.min(frameCount - start, Math.ceil(source.length * sampleRate / source.sampleRate));
+        for (let frame = 0; frame < length; frame++) {
+          const position = frame * source.sampleRate / sampleRate;
+          const index = Math.floor(position);
+          const fraction = position - index;
+          const next = Math.min(source.length - 1, index + 1);
+          const sample = (channel) => {
+            const data = channels[Math.min(channel, channels.length - 1)];
+            return (data[index] * (1 - fraction) + data[next] * fraction) * gain;
+          };
+          left[start + frame] += sample(0);
+          right[start + frame] += channels.length > 1 ? sample(1) : sample(0);
+        }
+      }
+      let peak = 0;
+      for (let index = 0; index < frameCount; index++) peak = Math.max(peak, Math.abs(left[index]), Math.abs(right[index]));
+      const scale = peak > 0.98 ? 0.98 / peak : 1;
+      const output = new ArrayBuffer(44 + frameCount * 4);
+      const view = new DataView(output);
+      const write = (offset, value) => {
+        for (let index = 0; index < value.length; index++) view.setUint8(offset + index, value.charCodeAt(index));
+      };
+      write(0, "RIFF");
+      view.setUint32(4, 36 + frameCount * 4, true);
+      write(8, "WAVE");
+      write(12, "fmt ");
+      view.setUint32(16, 16, true);
+      view.setUint16(20, 1, true);
+      view.setUint16(22, 2, true);
+      view.setUint32(24, sampleRate, true);
+      view.setUint32(28, sampleRate * 4, true);
+      view.setUint16(32, 4, true);
+      view.setUint16(34, 16, true);
+      write(36, "data");
+      view.setUint32(40, frameCount * 4, true);
+      for (let frame = 0; frame < frameCount; frame++) {
+        const index = 44 + frame * 4;
+        view.setInt16(index, Math.max(-1, Math.min(1, left[frame] * scale)) * 32767, true);
+        view.setInt16(index + 2, Math.max(-1, Math.min(1, right[frame] * scale)) * 32767, true);
+      }
+      return new Blob([output], {type: "audio/wav"});
+    } finally {
+      await decoder.close();
+    }
+  }
+
+  async function synthesizeTrack(track, model, speaker, completedBefore, totalSegments) {
+    const response = await fetch("/api/synthesize", {
+      method: "POST",
+      headers: {
+        "X-Filename": track.sourceName,
+        "X-Model": model.experiment,
+        "X-Checkpoint": String(model.checkpoint ?? ""),
+        "X-Speaker": speaker,
+      },
+      body: track.sourceText,
+    });
+    const job = await response.json();
+    if (!response.ok) throw new Error(job.error || `${track.name}の合成を開始できません`);
+    state.synthesisJobId = job.job_id;
+    let playedSegments = 0;
+    let finished = false;
+    while (!finished) {
+      const statusResponse = await fetch(`/api/synthesis-status?job=${encodeURIComponent(job.job_id)}`);
+      const progress = await statusResponse.json();
+      if (!statusResponse.ok) throw new Error(progress.error || "合成ジョブの状態を取得できません");
+      state.synthesisLogs = (progress.logs || []).map((line) => `${track.name}: ${line}`);
+      state.synthesisTotal = totalSegments;
+      state.synthesisCompleted = completedBefore + (progress.segments || []).length;
+      updateSynthesisMonitor();
+      while (playedSegments < state.synthesisCompleted - completedBefore) {
+        const segment = progress.segments[playedSegments];
+        const audioResponse = await fetch(`/api/synthesis-segment?job=${encodeURIComponent(job.job_id)}&index=${segment.index}`);
+        if (!audioResponse.ok) throw new Error(`${track.name}: 合成フレーズの音声を取得できません`);
+        await queueLiveSegment(await audioResponse.blob(), {
+          ...segment,
+          offset: (Number(track.mixOffset) || 0) + Number(segment.offset || 0),
+        });
+        playedSegments++;
+      }
+      if (progress.status === "failed") throw new Error(progress.error || `${track.name}の合成に失敗しました`);
+      if (progress.status === "cancelled") throw new Error(`${track.name}の合成はキャンセルされました`);
+      finished = progress.status === "completed";
+      if (!finished) await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+    const audioResponse = await fetch(`/api/synthesis-audio?job=${encodeURIComponent(job.job_id)}`);
+    if (!audioResponse.ok) throw new Error(`${track.name}: 合成WAVを取得できません`);
+    state.synthesisJobId = "";
+    return await audioResponse.blob();
+  }
+
+  async function remixCachedTracks() {
+    const status = $("#synthesis-help");
+    const mixItems = state.projectTracks
+      .filter((track) => track.synthesisBlob)
+      .map((track) => ({
+        blob: track.synthesisBlob,
+        offset: Number(track.mixOffset) || 0,
+        gain: Number(track.gain ?? 1),
+      }));
+    if (!mixItems.length) {
+      status.textContent = "先に歌声トラックを合成してください";
+      return;
+    }
+    if (state.bgm) {
+      mixItems.push({
+        blob: new Blob([state.bgm.bytes], {type: state.bgm.mimeType}),
+        offset: Number(state.bgm.offset) || 0,
+        gain: Number(state.bgm.gain ?? 0.7),
+      });
+    }
+    const button = $("#remix-arrangement");
+    button.disabled = true;
+    try {
+      const mixed = await mixAudioBlobs(mixItems);
+      setInferenceAudio(URL.createObjectURL(mixed), true);
+      renderInference();
+      status.textContent = `${mixItems.length}音源を再ミックスしました。WAVを再生または保存できます。`;
+    } catch (error) {
+      status.textContent = `ミックスに失敗しました: ${error.message}`;
+    } finally {
+      button.disabled = false;
+    }
+  }
+
+  async function runSynthesis(allTracks = false) {
+    const button = allTracks ? $("#synthesize-all") : $("#synthesize");
+    const status = $("#synthesis-help");
+    const model = state.synthesisModels.find((item) => item.experiment === $("#acoustic-model-select").value);
+    if (!model || (!allTracks && !canSynthesizeInput())) return;
+    const tracks = allTracks
+      ? [...state.projectTracks]
+      : [state.projectTracks[state.activeTrackIndex]].filter(Boolean);
+    if (!tracks.length) return;
+    if (tracks.some((track) => !track.sourceText || !/\.(ds|json)$/i.test(track.sourceName))) {
+      status.textContent = "すべてのトラックをDS音源に変換してから合成してください";
+      return;
+    }
+    button.disabled = true;
+    button.textContent = "合成中...";
+    state.synthesisRunning = true;
+    state.synthesisLogs = [];
+    state.synthesisCompleted = 0;
+    state.synthesisTotal = tracks.reduce((sum, track) => sum + track.inference.segments.length, 0);
+    renderInference();
+    status.textContent = `${tracks.length}トラックを順に合成し、位置・音量を合わせてミックスします。`;
+    try {
+      await prepareLivePlayback();
+      const speaker = $("#speaker-select").value;
+      let completedBefore = 0;
+      for (const track of tracks) {
+        track.synthesisBlob = await synthesizeTrack(track, model, speaker, completedBefore, state.synthesisTotal);
+        completedBefore += track.inference.segments.length;
+      }
+      const mixItems = state.projectTracks
+        .filter((track) => track.synthesisBlob)
+        .map((track) => ({
+          blob: track.synthesisBlob,
+          offset: Number(track.mixOffset) || 0,
+          gain: Number(track.gain ?? 1),
+        }));
+      if (state.bgm) {
+        mixItems.push({
+          blob: new Blob([state.bgm.bytes], {type: state.bgm.mimeType}),
+          offset: Number(state.bgm.offset) || 0,
+          gain: Number(state.bgm.gain ?? 0.7),
+        });
+      }
+      const mixed = await mixAudioBlobs(mixItems);
+      setInferenceAudio(URL.createObjectURL(mixed), true);
+      state.synthesisJobId = "";
+      state.synthesisRunning = false;
+      renderInference();
+      status.textContent = `${tracks.length}トラック${state.bgm ? " + BGM" : ""}をミックスしました。WAVを再生または保存できます。`;
+    } catch (error) {
+      if (state.synthesisJobId) resetSynthesisState();
+      state.synthesisRunning = false;
+      state.synthesisLogs.push(`エラー: ${error.message}`);
+      renderInference();
+      status.textContent = error.message;
+    } finally {
+      button.textContent = allTracks ? "全歌声トラックを合成・ミックス" : "選択トラックを合成";
+      updateSynthesisButton();
+    }
+  }
+
+  $("#training-mode").addEventListener("click", () => setMode("training"));
+  $("#inference-mode").addEventListener("click", () => setMode("inference"));
+  $("#inference-file").addEventListener("change", async (event) => {
+    try {
+      await importEditorFiles(Array.from(event.target.files || []));
+    } catch (error) {
+      $("#detail").innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`;
+    } finally {
+      state.addingTracks = false;
+      event.target.value = "";
+    }
+  });
+  $("#inference-file").addEventListener("click", (event) => {
+    if (event.isTrusted) state.addingTracks = false;
+  });
+  $("#add-track").addEventListener("click", () => {
+    state.addingTracks = true;
+    $("#inference-file").click();
+  });
+  $("#inference-audio").addEventListener("change", (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    setInferenceAudio(URL.createObjectURL(file));
+    if (state.inference) renderInference();
+  });
+  $("#predict-duration").addEventListener("click", runDurationPrediction);
+  $("#synthesize").addEventListener("click", () => runSynthesis(false));
+  $("#synthesize-all").addEventListener("click", () => runSynthesis(true));
+  $("#bgm-file").addEventListener("change", async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      await loadBgmFile(file);
+      $("#synthesis-help").textContent = `BGMを読み込みました: ${file.name}`;
+    } catch (error) {
+      $("#synthesis-help").textContent = `BGMを読み込めません: ${error.message}`;
+    } finally {
+      event.target.value = "";
+    }
+  });
+  $("#save-project").addEventListener("click", saveProject);
+  $("#model-select").addEventListener("change", () => {
+    updatePredictButton();
+    if (state.inference) renderInference();
+  });
+  $("#acoustic-model-select").addEventListener("change", updateSynthesisButton);
+  document.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+      event.preventDefault();
+      saveProject();
+    }
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z" && !event.target.matches("input, textarea")) {
+      event.preventDefault();
+      restoreEdit(!event.shiftKey);
+    }
+  });
+
+  async function init() {
+    try {
+      const [trainingResponse, samplesResponse, modelsResponse] = await Promise.all([
+        fetch("/api/training"), fetch("/api/inference-samples"), fetch("/api/models"),
+      ]);
+      const training = await trainingResponse.json();
+      const samples = await samplesResponse.json();
+      const models = await modelsResponse.json();
+      if (!trainingResponse.ok) throw new Error(training.error || "教師データを読み込めません");
+      state.training = training.records;
+      state.inferenceSamples = samples.samples || [];
+      state.models = models.models || [];
+      state.synthesisModels = models.synthesis_models || [];
+      $("#training-mode").setAttribute("aria-pressed", "false");
+      $("#inference-mode").setAttribute("aria-pressed", "true");
+      $("#list-title").textContent = "推論サンプル";
+      $("#upload-box").classList.remove("hidden");
+      $("#model-select").innerHTML = state.models.length
+        ? state.models.map((model) => `<option value="${escapeHtml(model.experiment)}">${escapeHtml(model.label || `${model.experiment} · step ${model.checkpoint}`)}</option>`).join("")
+        : '<option value="">学習済みモデルがありません</option>';
+      $("#acoustic-model-select").innerHTML = state.synthesisModels.length
+        ? state.synthesisModels.map((model) => `<option value="${escapeHtml(model.experiment)}">${escapeHtml(model.label)}</option>`).join("")
+        : '<option value="">音声合成モデルがありません</option>';
+      updatePredictButton();
+      renderList();
+      if (state.inferenceSamples.length) {
+        state.active = 0;
+        await loadInferenceSample(state.inferenceSamples[0]);
+        renderList();
+      }
+    } catch (error) { $("#detail").innerHTML = `<div class="error">${escapeHtml(error.message)}</div>`; }
+  }
+  init();
+</script>
+</body>
+</html>
